@@ -1,5 +1,3 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
-
 interface RequestOptions {
   method?: string;
   body?: any;
@@ -18,7 +16,7 @@ async function apiRequest(endpoint: string, options: RequestOptions = {}) {
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const response = await fetch(`${API_URL}${endpoint}`, {
+  const response = await fetch(endpoint, {
     method: options.method || 'GET',
     headers,
     body: options.body ? JSON.stringify(options.body) : undefined,

@@ -6,8 +6,9 @@ A secure, realtime, admin-only digital bahi-khata system with a cinematic 3D lan
 
 ## Tech Stack
 
-- **Frontend**: Next.js 14, React 18, React Three Fiber, GSAP, Plain CSS
-- **Backend**: Express.js, JWT, bcrypt
+- **Framework**: Next.js 14 (App Router + API Routes) — single deployment
+- **UI**: React 18, React Three Fiber, Plain CSS
+- **Auth**: JWT + bcrypt (server-side API routes)
 - **Database**: Firebase Firestore (with in-memory dev store)
 - **Export**: PDF (jsPDF), Excel (xlsx), CSV, Print
 
@@ -15,33 +16,25 @@ A secure, realtime, admin-only digital bahi-khata system with a cinematic 3D lan
 
 ```
 src/
-├── frontend/          # Next.js app
-│   └── src/
-│       ├── app/       # Pages (landing, login, dashboard, ledger, audit, export, settings)
-│       ├── components/# React components (3D scene, forms, tables)
-│       ├── lib/       # API client, auth context, utilities
-│       └── styles/    # CSS modules (landing, login, dashboard, ledger, pages)
-└── backend/           # Express.js API
-    ├── routes/        # Auth, transactions, audit, settings
-    ├── middleware/     # JWT auth middleware
-    └── services/      # Firebase, memory store, audit service
+└── frontend/              # Single Next.js app (deploys on Vercel free tier)
+    └── src/
+        ├── app/           # Pages + API Routes
+        │   ├── api/       # Backend API (auth, transactions, audit, settings)
+        │   ├── dashboard/ # Dashboard, ledger, audit, export, settings pages
+        │   ├── login/     # Login page
+        │   └── page.tsx   # 3D Landing page
+        ├── components/    # React components (3D scene, etc.)
+        ├── lib/           # Client: API client, auth context, utilities
+        │   └── server/    # Server: store, JWT auth, audit service
+        └── styles/        # CSS (landing, login, dashboard, ledger, pages)
 ```
 
 ## Quick Start
 
-### 1. Start Backend
-```bash
-cd src/backend
-cp .env.example .env    # Configure your settings
-npm install
-npm run dev             # Runs on port 5000
-```
-
-### 2. Start Frontend
 ```bash
 cd src/frontend
 npm install
-npm run dev             # Runs on port 3000
+npm run dev       # Runs on http://localhost:3000
 ```
 
 ### 3. Login
@@ -83,3 +76,13 @@ npm run dev             # Runs on port 3000
 - **SR** (Sales Return): Returned goods → increases balance
 
 **Balance Formula**: `New Balance = Previous Balance + Credit + SR - Debit`
+
+## Deploy on Vercel (Free)
+
+1. Push this repo to GitHub
+2. Go to [vercel.com](https://vercel.com) → Import Project
+3. Set **Root Directory** to `src/frontend`
+4. Add Environment Variable: `JWT_SECRET` = (any secret string)
+5. Click Deploy ✅
+
+That's it — single deploy, no separate backend needed!
