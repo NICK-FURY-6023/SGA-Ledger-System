@@ -1,13 +1,15 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useAuth } from '@/lib/auth';
 import { transactionAPI, auditAPI } from '@/lib/api';
 import { formatCurrency } from '@/lib/utils';
-import { IconCalendar } from '@/components/icons/Icons';
+import { IconCalendar, IconArrowRight, IconLedger, IconActivity, IconDatabase, IconShield, IconCheckCircle, IconFilePdf } from '@/components/icons/Icons';
 
 export default function DashboardPage() {
   const { admin } = useAuth();
+  const isSuperAdmin = admin?.role === 'superadmin';
   const [stats, setStats] = useState({
     totalTransactions: 0,
     totalDebit: 0,
@@ -18,6 +20,7 @@ export default function DashboardPage() {
     todayCredit: 0,
     todaySR: 0,
     recentActivity: [] as any[],
+    dbStatus: 'unknown',
   });
 
   useEffect(() => {
@@ -26,10 +29,18 @@ export default function DashboardPage() {
 
   const loadStats = async () => {
     try {
-      const [txRes, auditRes] = await Promise.all([
+      const promises: Promise<any>[] = [
         transactionAPI.getAll({ limit: '10000' }),
-        auditAPI.getAll({ limit: '5' }),
-      ]);
+      ];
+      if (isSuperAdmin) {
+        promises.push(auditAPI.getAll({ limit: '10' }));
+        promises.push(fetch('/api/health').then(r => r.json()).catch(() => ({ database: 'unknown' })));
+      }
+
+      const results = await Promise.all(promises);
+      const txRes = results[0];
+      const auditRes = isSuperAdmin ? results[1] : { logs: [] };
+      const health = isSuperAdmin ? results[2] : { database: 'unknown' };
 
       const transactions = txRes.transactions || [];
       const today = new Date().toISOString().split('T')[0];
@@ -55,6 +66,7 @@ export default function DashboardPage() {
         todayCredit,
         todaySR,
         recentActivity: auditRes.logs || [],
+        dbStatus: health.database || 'unknown',
       });
     } catch (err) {
       console.error('Failed to load stats:', err);
@@ -66,10 +78,13 @@ export default function DashboardPage() {
       <div className="main__header">
         <div>
           <h1 className="main__title">Dashboard</h1>
-          <p className="main__subtitle">Welcome back, {admin?.username}</p>
+          <p className="main__subtitle">
+            Welcome back, {admin?.username} {isSuperAdmin ? '(Developer)' : '(Admin)'}
+          </p>
         </div>
       </div>
 
+      {/* Core Stats */}
       <div className="stats">
         <div className="stat-card">
           <div className="stat-card__label">Total Transactions</div>
@@ -130,11 +145,71 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {stats.recentActivity.length > 0 && (
+      {/* Admin: Quick Actions */}
+      {!isSuperAdmin && (
         <div style={{ marginTop: '1.5rem' }}>
           <h3 style={{ fontSize: '1rem', color: 'var(--text-secondary)', marginBottom: '1rem' }}>
-            Recent Activity
+            Quick Actions
           </h3>
+          <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+            <Link href="/dashboard/ledger" style={{
+              display: 'flex', alignItems: 'center', gap: '0.5rem',
+              padding: '1rem 1.5rem', background: 'var(--card-bg)', border: '1px solid var(--border)',
+              borderRadius: '0.5rem', color: 'var(--accent-blue)', textDecoration: 'none',
+              fontSize: '0.95rem', transition: 'border-color 0.2s',
+            }}>
+              <IconLedger size={18} /> Open Ledger <IconArrowRight size={14} />
+            </Link>
+            <Link href="/dashboard/export" style={{
+              display: 'flex', alignItems: 'center', gap: '0.5rem',
+              padding: '1rem 1.5rem', background: 'var(--card-bg)', border: '1px solid var(--border)',
+              borderRadius: '0.5rem', color: 'var(--accent-orange)', textDecoration: 'none',
+              fontSize: '0.95rem', transition: 'border-color 0.2s',
+            }}>
+              <IconFilePdf size={18} /> Export Data <IconArrowRight size={14} />
+            </Link>
+          </div>
+        </div>
+      )}
+
+      {/* Developer: System Overview */}
+      {isSuperAdmin && (
+        <div style={{ marginTop: '1.5rem' }}>
+          <h3 style={{ fontSize: '1rem', color: 'var(--text-secondary)', marginBottom: '1rem' }}>
+            <IconActivity size={16} /> System Overview
+          </h3>
+          <div className="stats">
+            <div className="stat-card">
+              <div className="stat-card__label"><IconDatabase size={14} /> Database</div>
+              <div className="stat-card__value" style={{ fontSize: '1rem', color: stats.dbStatus === 'firestore' ? '#4CAF50' : '#FF9800' }}>
+                {stats.dbStatus === 'firestore' ? (
+                  <><IconCheckCircle size={16} color="#4CAF50" /> Firestore</>
+                ) : (
+                  <><IconShield size={16} color="#FF9800" /> In-Memory</>
+                )}
+              </div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-card__label"><IconShield size={14} /> Your Role</div>
+              <div className="stat-card__value" style={{ fontSize: '1rem', color: 'var(--accent-blue)' }}>
+                Super Admin
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Developer: Recent Audit Activity */}
+      {isSuperAdmin && stats.recentActivity.length > 0 && (
+        <div style={{ marginTop: '1.5rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+            <h3 style={{ fontSize: '1rem', color: 'var(--text-secondary)' }}>
+              Recent Activity
+            </h3>
+            <Link href="/dashboard/audit" style={{ color: 'var(--accent-blue)', fontSize: '0.85rem', textDecoration: 'none' }}>
+              View All <IconArrowRight size={12} />
+            </Link>
+          </div>
           <div className="audit__table-wrap">
             <table className="audit__table">
               <thead>

@@ -1,9 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { settingsAPI, authAPI } from '@/lib/api';
+import { settingsAPI } from '@/lib/api';
 import toast from 'react-hot-toast';
-import { IconSettings, IconKey } from '@/components/icons/Icons';
+import { IconSettings } from '@/components/icons/Icons';
 
 export default function SettingsPage() {
   const [settings, setSettings] = useState({
@@ -14,12 +14,6 @@ export default function SettingsPage() {
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-
-  // Password change
-  const [currentPassword, setCurrentPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [changingPassword, setChangingPassword] = useState(false);
 
   useEffect(() => {
     loadSettings();
@@ -48,34 +42,6 @@ export default function SettingsPage() {
     }
   };
 
-  const handlePasswordChange = async () => {
-    if (!currentPassword || !newPassword) {
-      toast.error('Please fill in all password fields');
-      return;
-    }
-    if (newPassword.length < 6) {
-      toast.error('New password must be at least 6 characters');
-      return;
-    }
-    if (newPassword !== confirmPassword) {
-      toast.error('New passwords do not match');
-      return;
-    }
-
-    setChangingPassword(true);
-    try {
-      await authAPI.changePassword(currentPassword, newPassword);
-      toast.success('Password changed successfully!');
-      setCurrentPassword('');
-      setNewPassword('');
-      setConfirmPassword('');
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to change password');
-    } finally {
-      setChangingPassword(false);
-    }
-  };
-
   if (loading) {
     return <div style={{ padding: '2rem', color: 'var(--text-muted)' }}>Loading...</div>;
   }
@@ -85,7 +51,7 @@ export default function SettingsPage() {
       <div className="main__header">
         <div>
           <h1 className="main__title"><IconSettings size={22} /> Settings</h1>
-          <p className="main__subtitle">Configure your ledger system</p>
+          <p className="main__subtitle">System configuration (Developer only)</p>
         </div>
       </div>
 
@@ -109,9 +75,9 @@ export default function SettingsPage() {
             value={settings.currency}
             onChange={(e) => setSettings({ ...settings, currency: e.target.value })}
           >
-            <option value="INR">₹ INR (Indian Rupee)</option>
+            <option value="INR">INR (Indian Rupee)</option>
             <option value="USD">$ USD (US Dollar)</option>
-            <option value="EUR">€ EUR (Euro)</option>
+            <option value="EUR">EUR (Euro)</option>
           </select>
         </div>
         <div className="settings__field">
@@ -144,48 +110,6 @@ export default function SettingsPage() {
       >
         {saving ? 'Saving...' : 'Save Settings'}
       </button>
-
-      <div className="settings__section" style={{ marginTop: '2rem' }}>
-        <h3 className="settings__section-title"><IconKey size={18} /> Change Password</h3>
-        <div className="settings__field">
-          <label className="settings__label">Current Password</label>
-          <input
-            type="password"
-            value={currentPassword}
-            onChange={(e) => setCurrentPassword(e.target.value)}
-            placeholder="Enter current password"
-            autoComplete="current-password"
-          />
-        </div>
-        <div className="settings__field">
-          <label className="settings__label">New Password</label>
-          <input
-            type="password"
-            value={newPassword}
-            onChange={(e) => setNewPassword(e.target.value)}
-            placeholder="At least 6 characters"
-            autoComplete="new-password"
-          />
-        </div>
-        <div className="settings__field">
-          <label className="settings__label">Confirm New Password</label>
-          <input
-            type="password"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            placeholder="Re-enter new password"
-            autoComplete="new-password"
-          />
-        </div>
-        <button
-          className="settings__save"
-          onClick={handlePasswordChange}
-          disabled={changingPassword}
-          style={{ background: 'var(--accent-orange)' }}
-        >
-          {changingPassword ? 'Changing...' : 'Change Password'}
-        </button>
-      </div>
 
       <div className="settings__section" style={{ marginTop: '2rem' }}>
         <h3 className="settings__section-title">System Information</h3>

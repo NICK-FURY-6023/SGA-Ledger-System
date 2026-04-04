@@ -4,15 +4,27 @@ import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/lib/auth';
-import { IconDashboard, IconLedger, IconAudit, IconExport, IconSettings, IconMenu, IconLogout } from '@/components/icons/Icons';
+import { IconDashboard, IconLedger, IconAudit, IconExport, IconSettings, IconMenu, IconLogout, IconUser, IconMonitor } from '@/components/icons/Icons';
 
-const navItems = [
+const adminNavItems = [
   { href: '/dashboard', label: 'Dashboard', Icon: IconDashboard },
   { href: '/dashboard/ledger', label: 'Ledger', Icon: IconLedger },
-  { href: '/dashboard/audit', label: 'Audit Logs', Icon: IconAudit },
   { href: '/dashboard/export', label: 'Export', Icon: IconExport },
-  { href: '/dashboard/settings', label: 'Settings', Icon: IconSettings },
+  { href: '/dashboard/profile', label: 'Profile', Icon: IconUser },
 ];
+
+const devNavItems = [
+  { href: '/dashboard', label: 'Dashboard', Icon: IconDashboard },
+  { href: '/dashboard/ledger', label: 'Ledger', Icon: IconLedger },
+  { href: '/dashboard/export', label: 'Export', Icon: IconExport },
+  { href: '/dashboard/audit', label: 'Audit Logs', Icon: IconAudit },
+  { href: '/dashboard/monitor', label: 'System Monitor', Icon: IconMonitor },
+  { href: '/dashboard/settings', label: 'Settings', Icon: IconSettings },
+  { href: '/dashboard/profile', label: 'Profile', Icon: IconUser },
+];
+
+// Pages restricted to superadmin only
+const superadminOnlyPaths = ['/dashboard/audit', '/dashboard/monitor', '/dashboard/settings'];
 
 export default function DashboardLayout({
   children,
@@ -24,11 +36,20 @@ export default function DashboardLayout({
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
+  const isSuperAdmin = admin?.role === 'superadmin';
+  const navItems = isSuperAdmin ? devNavItems : adminNavItems;
+
   useEffect(() => {
     if (!loading && !isAuthenticated) {
       router.push('/login');
     }
   }, [loading, isAuthenticated, router]);
+
+  useEffect(() => {
+    if (!loading && isAuthenticated && !isSuperAdmin && superadminOnlyPaths.includes(pathname)) {
+      router.push('/dashboard');
+    }
+  }, [loading, isAuthenticated, isSuperAdmin, pathname, router]);
 
   if (loading) {
     return (
@@ -42,6 +63,7 @@ export default function DashboardLayout({
   }
 
   if (!isAuthenticated) return null;
+  if (!isSuperAdmin && superadminOnlyPaths.includes(pathname)) return null;
 
   const handleLogout = async () => {
     await logout();
@@ -86,7 +108,7 @@ export default function DashboardLayout({
             </div>
             <div>
               <div className="sidebar__username">{admin?.username}</div>
-              <div className="sidebar__role">{admin?.role}</div>
+              <div className="sidebar__role">{isSuperAdmin ? 'Developer' : 'Admin'}</div>
             </div>
           </div>
           <button className="sidebar__logout" onClick={handleLogout}>
