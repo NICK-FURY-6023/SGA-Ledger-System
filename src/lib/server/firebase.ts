@@ -3,13 +3,20 @@ import { getFirestore, Firestore } from 'firebase-admin/firestore';
 
 let app: App | null = null;
 let db: Firestore | null = null;
+let firebaseAvailable: boolean | null = null;
 
 export function isFirebaseConfigured(): boolean {
+  if (firebaseAvailable === false) return false;
   return !!(
     process.env.FIREBASE_PROJECT_ID &&
     process.env.FIREBASE_CLIENT_EMAIL &&
     process.env.FIREBASE_PRIVATE_KEY
   );
+}
+
+export function markFirebaseUnavailable() {
+  firebaseAvailable = false;
+  console.warn('[SGALA] Firestore unavailable — falling back to in-memory store');
 }
 
 export function getDb(): Firestore | null {

@@ -1,33 +1,43 @@
 import { v4 as uuidv4 } from 'uuid';
 import bcrypt from 'bcryptjs';
-import { getDb, isFirebaseConfigured } from './firebase';
+import { getDb, isFirebaseConfigured, markFirebaseUnavailable } from './firebase';
 import { getStore, Admin, Session, Transaction, AuditLog, Settings } from './store';
+
+function useFirestore(): boolean {
+  return isFirebaseConfigured() && !!getDb();
+}
+
+function handleFirestoreError(context: string, err: unknown): void {
+  console.error(`[SGALA] Firestore error in ${context}:`, err);
+  markFirebaseUnavailable();
+}
 
 // ─── ADMIN OPERATIONS ───
 
 export async function seedAdmins(): Promise<void> {
-  if (isFirebaseConfigured()) {
-    const db = getDb()!;
-    const snapshot = await db.collection('admins').limit(1).get();
-    if (!snapshot.empty) return;
+  if (useFirestore()) {
+    try {
+      const db = getDb()!;
+      const snapshot = await db.collection('admins').limit(1).get();
+      if (!snapshot.empty) return;
 
-    const adminHash = await bcrypt.hash('SGALAS.@ADMIN123', 12);
-    const devHash = await bcrypt.hash('SGALA@DEVLOPER_Xd', 12);
-    const batch = db.batch();
+      const adminHash = await bcrypt.hash('SGALAS.@ADMIN123', 12);
+      const devHash = await bcrypt.hash('SGALA@DEVLOPER_Xd', 12);
+      const batch = db.batch();
 
-    const adminId = uuidv4();
-    batch.set(db.collection('admins').doc(adminId), {
-      id: adminId,
-      email: 'sgalas@admin.com',
-      username: 'admin',
-      passwordHash: adminHash,
-      role: 'admin',
-      isActive: true,
-      createdAt: new Date().toISOString(),
-      lastLoginAt: null,
-    });
+      const adminId = uuidv4();
+      batch.set(db.collection('admins').doc(adminId), {
+        id: adminId,
+        email: 'sgalas@admin.com',
+        username: 'admin',
+        passwordHash: adminHash,
+        role: 'admin',
+        isActive: true,
+        createdAt: new Date().toISOString(),
+        lastLoginAt: null,
+      });
 
-    const devId = uuidv4();
+      const devId = uuidv4();
     batch.set(db.collection('admins').doc(devId), {
       id: devId,
       email: 'sgalas@devloper.com',
@@ -40,6 +50,11 @@ export async function seedAdmins(): Promise<void> {
     });
 
     await batch.commit();
+    } catch (err) {
+      handleFirestoreError('seedAdmins', err);
+      const { seedAdmin } = await import('./store');
+      await seedAdmin();
+    }
   } else {
     const { seedAdmin } = await import('./store');
     await seedAdmin();
@@ -47,7 +62,7 @@ export async function seedAdmins(): Promise<void> {
 }
 
 export async function findAdminByEmail(email: string): Promise<Admin | null> {
-  if (isFirebaseConfigured()) {
+  if (useFirestore()) {
     const db = getDb()!;
     const snapshot = await db.collection('admins')
       .where('email', '==', email.toLowerCase())
@@ -63,7 +78,7 @@ export async function findAdminByEmail(email: string): Promise<Admin | null> {
 }
 
 export async function findAdminById(id: string): Promise<Admin | null> {
-  if (isFirebaseConfigured()) {
+  if (useFirestore()) {
     const db = getDb()!;
     const doc = await db.collection('admins').doc(id).get();
     if (!doc.exists) return null;
@@ -75,7 +90,7 @@ export async function findAdminById(id: string): Promise<Admin | null> {
 }
 
 export async function updateAdmin(id: string, data: Partial<Admin>): Promise<void> {
-  if (isFirebaseConfigured()) {
+  if (useFirestore()) {
     const db = getDb()!;
     await db.collection('admins').doc(id).update(data);
   } else {
@@ -89,7 +104,7 @@ export async function updateAdmin(id: string, data: Partial<Admin>): Promise<voi
 
 export async function createSession(data: Omit<Session, 'id'>): Promise<Session> {
   const session: Session = { id: uuidv4(), ...data };
-  if (isFirebaseConfigured()) {
+  if (useFirestore()) {
     const db = getDb()!;
     await db.collection('sessions').doc(session.id).set(session);
   } else {
@@ -100,7 +115,7 @@ export async function createSession(data: Omit<Session, 'id'>): Promise<Session>
 }
 
 export async function updateSession(id: string, data: Partial<Session>): Promise<void> {
-  if (isFirebaseConfigured()) {
+  if (useFirestore()) {
     const db = getDb()!;
     await db.collection('sessions').doc(id).update(data);
   } else {
@@ -162,7 +177,7 @@ function recalculateBalancesMemory(): void {
 }
 
 export async function recalculateAllBalances(): Promise<void> {
-  if (isFirebaseConfigured()) {
+  if (useFirestore()) {
     await recalculateBalancesFirestore();
   } else {
     recalculateBalancesMemory();
@@ -183,7 +198,7 @@ interface TransactionFilters {
 export async function getAllTransactions(filters: TransactionFilters) {
   const { billNo, partyName, type, dateFrom, dateTo, sortOrder, page = 1, limit = 50 } = filters;
 
-  if (isFirebaseConfigured()) {
+  if (useFirestore()) {
     const db = getDb()!;
     let query: FirebaseFirestore.Query = db.collection('transactions');
 
@@ -246,7 +261,7 @@ export async function createTransaction(data: {
     updatedAt: new Date().toISOString(),
   };
 
-  if (isFirebaseConfigured()) {
+  if (useFirestore()) {
     const db = getDb()!;
     await db.collection('transactions').doc(transaction.id).set(transaction);
     await recalculateBalancesFirestore();
@@ -261,7 +276,7 @@ export async function createTransaction(data: {
 }
 
 export async function findTransactionById(id: string): Promise<Transaction | null> {
-  if (isFirebaseConfigured()) {
+  if (useFirestore()) {
     const db = getDb()!;
     const doc = await db.collection('transactions').doc(id).get();
     if (!doc.exists) return null;
@@ -277,7 +292,7 @@ export async function updateTransaction(id: string, data: {
   debit: number; credit: number; sr: number; type?: string;
   adminId: string;
 }): Promise<Transaction | null> {
-  if (isFirebaseConfigured()) {
+  if (useFirestore()) {
     const db = getDb()!;
     const docRef = db.collection('transactions').doc(id);
     const doc = await docRef.get();
@@ -327,7 +342,7 @@ export async function updateTransaction(id: string, data: {
 }
 
 export async function deleteTransaction(id: string): Promise<Transaction | null> {
-  if (isFirebaseConfigured()) {
+  if (useFirestore()) {
     const db = getDb()!;
     const docRef = db.collection('transactions').doc(id);
     const doc = await docRef.get();
@@ -368,7 +383,7 @@ export async function createAuditLog(input: {
     timestamp: new Date().toISOString(),
   };
 
-  if (isFirebaseConfigured()) {
+  if (useFirestore()) {
     const db = getDb()!;
     await db.collection('audit_logs').doc(log.id).set(log);
   } else {
@@ -384,7 +399,7 @@ export async function getAuditLogs(params: {
 }) {
   const { adminId, from, to, page = 1, limit = 50 } = params;
 
-  if (isFirebaseConfigured()) {
+  if (useFirestore()) {
     const db = getDb()!;
     let query: FirebaseFirestore.Query = db.collection('audit_logs')
       .orderBy('timestamp', 'desc');
@@ -421,7 +436,7 @@ export async function getAuditLogs(params: {
 const SETTINGS_DOC = 'config/settings';
 
 export async function getSettings(): Promise<Settings> {
-  if (isFirebaseConfigured()) {
+  if (useFirestore()) {
     const db = getDb()!;
     const doc = await db.doc(SETTINGS_DOC).get();
     if (!doc.exists) {
@@ -442,7 +457,7 @@ export async function getSettings(): Promise<Settings> {
 }
 
 export async function updateSettings(data: Partial<Settings>): Promise<Settings> {
-  if (isFirebaseConfigured()) {
+  if (useFirestore()) {
     const db = getDb()!;
     const doc = await db.doc(SETTINGS_DOC).get();
     const current = doc.exists ? (doc.data() as Settings) : {
