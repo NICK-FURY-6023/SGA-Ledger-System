@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { settingsAPI, authAPI } from '@/lib/api';
 import toast from 'react-hot-toast';
+import { IconSettings, IconKey } from '@/components/icons/Icons';
 
 export default function SettingsPage() {
   const [settings, setSettings] = useState({
@@ -83,7 +84,7 @@ export default function SettingsPage() {
     <div className="settings">
       <div className="main__header">
         <div>
-          <h1 className="main__title">⚙️ Settings</h1>
+          <h1 className="main__title"><IconSettings size={22} /> Settings</h1>
           <p className="main__subtitle">Configure your ledger system</p>
         </div>
       </div>
@@ -145,7 +146,7 @@ export default function SettingsPage() {
       </button>
 
       <div className="settings__section" style={{ marginTop: '2rem' }}>
-        <h3 className="settings__section-title">🔐 Change Password</h3>
+        <h3 className="settings__section-title"><IconKey size={18} /> Change Password</h3>
         <div className="settings__field">
           <label className="settings__label">Current Password</label>
           <input

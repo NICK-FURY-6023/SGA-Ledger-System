@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '@/lib/auth';
 import { transactionAPI, auditAPI } from '@/lib/api';
 import { formatCurrency } from '@/lib/utils';
+import { IconCalendar } from '@/components/icons/Icons';
 
 export default function DashboardPage() {
   const { admin } = useAuth();
@@ -99,7 +100,7 @@ export default function DashboardPage() {
       {/* Today's Summary */}
       <div style={{ marginTop: '1.5rem' }}>
         <h3 style={{ fontSize: '1rem', color: 'var(--text-secondary)', marginBottom: '1rem' }}>
-          📅 Today&apos;s Summary
+          <IconCalendar size={16} /> Today&apos;s Summary
         </h3>
         <div className="stats">
           <div className="stat-card">

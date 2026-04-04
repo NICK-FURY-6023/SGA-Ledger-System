@@ -4,13 +4,14 @@ import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/lib/auth';
+import { IconDashboard, IconLedger, IconAudit, IconExport, IconSettings, IconMenu, IconLogout } from '@/components/icons/Icons';
 
 const navItems = [
-  { href: '/dashboard', label: 'Dashboard', icon: '📊' },
-  { href: '/dashboard/ledger', label: 'Ledger', icon: '📒' },
-  { href: '/dashboard/audit', label: 'Audit Logs', icon: '🔍' },
-  { href: '/dashboard/export', label: 'Export', icon: '📤' },
-  { href: '/dashboard/settings', label: 'Settings', icon: '⚙️' },
+  { href: '/dashboard', label: 'Dashboard', Icon: IconDashboard },
+  { href: '/dashboard/ledger', label: 'Ledger', Icon: IconLedger },
+  { href: '/dashboard/audit', label: 'Audit Logs', Icon: IconAudit },
+  { href: '/dashboard/export', label: 'Export', Icon: IconExport },
+  { href: '/dashboard/settings', label: 'Settings', Icon: IconSettings },
 ];
 
 export default function DashboardLayout({
@@ -53,7 +54,7 @@ export default function DashboardLayout({
         className="sidebar-toggle"
         onClick={() => setSidebarOpen(!sidebarOpen)}
       >
-        ☰
+        <IconMenu size={22} />
       </button>
 
       <aside className={`sidebar ${sidebarOpen ? 'sidebar--open' : ''}`}>
@@ -72,7 +73,7 @@ export default function DashboardLayout({
               }`}
               onClick={() => setSidebarOpen(false)}
             >
-              <span>{item.icon}</span>
+              <item.Icon size={18} />
               <span>{item.label}</span>
             </Link>
           ))}
@@ -89,7 +90,7 @@ export default function DashboardLayout({
             </div>
           </div>
           <button className="sidebar__logout" onClick={handleLogout}>
-            🚪 Logout
+            <IconLogout size={16} /> Logout
           </button>
         </div>
       </aside>

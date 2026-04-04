@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { transactionAPI } from '@/lib/api';
 import { formatCurrency, formatDate } from '@/lib/utils';
+import { IconExport, IconFilePdf, IconFileExcel, IconFileCsv, IconPrinter } from '@/components/icons/Icons';
 
 export default function ExportPage() {
   const [dateFrom, setDateFrom] = useState('');
@@ -169,7 +170,7 @@ export default function ExportPage() {
     <div className="export">
       <div className="main__header">
         <div>
-          <h1 className="main__title">📤 Export</h1>
+          <h1 className="main__title"><IconExport size={22} /> Export</h1>
           <p className="main__subtitle">Download or print your ledger data</p>
         </div>
       </div>
@@ -195,22 +196,22 @@ export default function ExportPage() {
 
       <div className="export__options">
         <div className="export__card" onClick={exportPDF}>
-          <div className="export__card-icon">📕</div>
+          <div className="export__card-icon"><IconFilePdf size={32} /></div>
           <div className="export__card-title">Export PDF</div>
           <div className="export__card-desc">Print-ready ledger document</div>
         </div>
         <div className="export__card" onClick={exportExcel}>
-          <div className="export__card-icon">📗</div>
+          <div className="export__card-icon"><IconFileExcel size={32} /></div>
           <div className="export__card-title">Export Excel</div>
           <div className="export__card-desc">Spreadsheet with all columns</div>
         </div>
         <div className="export__card" onClick={exportCSV}>
-          <div className="export__card-icon">📄</div>
+          <div className="export__card-icon"><IconFileCsv size={32} /></div>
           <div className="export__card-title">Export CSV</div>
           <div className="export__card-desc">Simple comma-separated file</div>
         </div>
         <div className="export__card" onClick={printLedger}>
-          <div className="export__card-icon">🖨️</div>
+          <div className="export__card-icon"><IconPrinter size={32} /></div>
           <div className="export__card-title">Print</div>
           <div className="export__card-desc">Open print-friendly view</div>
         </div>

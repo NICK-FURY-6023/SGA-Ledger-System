@@ -4,6 +4,11 @@ import { useState, useEffect, useCallback } from 'react';
 import { transactionAPI } from '@/lib/api';
 import { formatCurrency, formatDate, getTodayISO } from '@/lib/utils';
 import toast from 'react-hot-toast';
+import {
+  IconLedger, IconSearch, IconFilter, IconPlus, IconEdit, IconTrash,
+  IconBookOpen, IconCalendar, IconClose, IconWarning, IconCreditIn, IconDebitOut, IconReturn,
+  IconChevronLeft, IconChevronRight
+} from '@/components/icons/Icons';
 
 interface Transaction {
   id: string;
@@ -179,7 +184,7 @@ export default function LedgerPage() {
     <div className="ledger">
       <div className="main__header">
         <div>
-          <h1 className="main__title">📒 Ledger</h1>
+          <h1 className="main__title"><IconLedger size={22} /> Ledger</h1>
           <p className="main__subtitle">
             {total} transaction{total !== 1 ? 's' : ''} recorded
           </p>
@@ -191,7 +196,7 @@ export default function LedgerPage() {
         <input
           type="text"
           className="ledger__search"
-          placeholder="🔍 Search by Bill/Challan No..."
+          placeholder="Search by Bill/Challan No..."
           value={searchBill}
           onChange={(e) => { setSearchBill(e.target.value); setPage(1); }}
         />
@@ -199,7 +204,7 @@ export default function LedgerPage() {
           className={`ledger__filter-btn ${showFilters ? 'ledger__filter-btn--active' : ''}`}
           onClick={() => setShowFilters(!showFilters)}
         >
-          🔽 Filters
+          <IconFilter size={14} /> Filters
         </button>
         {(['CIR', 'DIR', 'SR'] as const).map((t) => (
           <button
@@ -214,7 +219,7 @@ export default function LedgerPage() {
           className="ledger__add-btn"
           onClick={() => { resetForm(); setShowForm(true); }}
         >
-          ➕ New Entry
+          <IconPlus size={14} /> New Entry
         </button>
       </div>
 
@@ -281,7 +286,7 @@ export default function LedgerPage() {
               <tr>
                 <td colSpan={10}>
                   <div className="ledger__empty">
-                    <div className="ledger__empty-icon">📖</div>
+                    <div className="ledger__empty-icon"><IconBookOpen size={48} /></div>
                     <div className="ledger__empty-text">
                       No transactions found. Click &quot;New Entry&quot; to add your first record.
                     </div>
@@ -293,7 +298,7 @@ export default function LedgerPage() {
                 <>
                   <tr key={`date-${date}`} className="ledger__date-header">
                     <td colSpan={10}>
-                      📅 {formatDate(date)}
+                      <IconCalendar size={14} /> {formatDate(date)}
                     </td>
                   </tr>
                   {txs.map((tx) => (
@@ -328,14 +333,14 @@ export default function LedgerPage() {
                             onClick={() => handleEdit(tx)}
                             title="Edit"
                           >
-                            ✏️
+                            <IconEdit size={14} />
                           </button>
                           <button
                             className="ledger__action-btn ledger__action-btn--delete"
                             onClick={() => setDeleteId(tx.id)}
                             title="Delete"
                           >
-                            🗑️
+                            <IconTrash size={14} />
                           </button>
                         </div>
                       </td>
@@ -356,7 +361,7 @@ export default function LedgerPage() {
             disabled={page === 1}
             onClick={() => setPage(page - 1)}
           >
-            ← Prev
+            <IconChevronLeft size={14} /> Prev
           </button>
           <span className="ledger__page-info">
             Page {page} of {totalPages}
@@ -366,7 +371,7 @@ export default function LedgerPage() {
             disabled={page === totalPages}
             onClick={() => setPage(page + 1)}
           >
-            Next →
+            Next <IconChevronRight size={14} />
           </button>
         </div>
       )}
@@ -378,13 +383,13 @@ export default function LedgerPage() {
         }}>
           <form className="entry-form" onSubmit={handleSubmit}>
             <div className="entry-form__title">
-              <span>{editId ? '✏️ Edit Transaction' : '➕ New Transaction'}</span>
+              <span>{editId ? 'Edit Transaction' : 'New Transaction'}</span>
               <button
                 type="button"
                 className="entry-form__close"
                 onClick={() => { setShowForm(false); setEditId(null); }}
               >
-                ✕
+                <IconClose size={18} />
               </button>
             </div>
 
@@ -403,7 +408,7 @@ export default function LedgerPage() {
                   }`}
                   onClick={() => setFormData({ ...formData, type: t })}
                 >
-                  {t === 'CIR' ? '💰 Credit (CIR)' : t === 'DIR' ? '💸 Debit (DIR)' : '↩️ Sales Return (SR)'}
+                  {t === 'CIR' ? <><IconCreditIn size={14} /> Credit (CIR)</> : t === 'DIR' ? <><IconDebitOut size={14} /> Debit (DIR)</> : <><IconReturn size={14} /> Sales Return (SR)</>}
                 </button>
               ))}
             </div>
@@ -481,7 +486,7 @@ export default function LedgerPage() {
           if (e.target === e.currentTarget) setDeleteId(null);
         }}>
           <div className="entry-form" style={{ maxWidth: '400px', textAlign: 'center' }}>
-            <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>⚠️</div>
+            <div style={{ marginBottom: '1rem', color: 'var(--accent-orange)' }}><IconWarning size={48} /></div>
             <h3 style={{ marginBottom: '0.5rem', color: 'var(--text-primary)' }}>
               Delete Transaction?
             </h3>

@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { auditAPI } from '@/lib/api';
 import { formatDateTime } from '@/lib/utils';
+import { IconAudit, IconChevronLeft, IconChevronRight } from '@/components/icons/Icons';
 
 interface AuditLog {
   id: string;
@@ -54,7 +55,7 @@ export default function AuditPage() {
     <div className="audit">
       <div className="main__header">
         <div>
-          <h1 className="main__title">🔍 Audit Logs</h1>
+          <h1 className="main__title"><IconAudit size={22} /> Audit Logs</h1>
           <p className="main__subtitle">{total} event{total !== 1 ? 's' : ''} recorded</p>
         </div>
       </div>
@@ -145,7 +146,7 @@ export default function AuditPage() {
             disabled={page === 1}
             onClick={() => setPage(page - 1)}
           >
-            ← Prev
+            <IconChevronLeft size={14} /> Prev
           </button>
           <span className="ledger__page-info">
             Page {page} of {totalPages}
@@ -155,7 +156,7 @@ export default function AuditPage() {
             disabled={page === totalPages}
             onClick={() => setPage(page + 1)}
           >
-            Next →
+            Next <IconChevronRight size={14} />
           </button>
         </div>
       )}

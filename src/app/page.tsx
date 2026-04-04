@@ -3,6 +3,10 @@
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
+import {
+  IconLedger, IconCloud, IconLock, IconDashboard, IconSearch, IconShield,
+  IconExport, IconReturn, IconZap, IconBell, IconSettings, IconArrowRight, IconChevronDown
+} from '@/components/icons/Icons';
 
 const ThreeScene = dynamic(() => import('@/components/landing/ThreeScene'), {
   ssr: false,
@@ -50,7 +54,9 @@ export default function LandingPage() {
           </button>
           <div className="landing__scroll-hint">
             <span>Scroll to explore</span>
-            <div className="landing__scroll-arrow">↓</div>
+            <div className="landing__scroll-arrow">
+              <IconChevronDown size={20} />
+            </div>
           </div>
         </div>
       </section>
@@ -67,17 +73,17 @@ export default function LandingPage() {
           </p>
           <div className="landing-section__highlights">
             <div className="highlight-card">
-              <div className="highlight-card__icon">📒</div>
+              <div className="highlight-card__icon"><IconLedger size={28} /></div>
               <h3>Traditional Look</h3>
               <p>Looks and feels like a real physical register — familiar columns, date-wise grouping, running balance</p>
             </div>
             <div className="highlight-card">
-              <div className="highlight-card__icon">☁️</div>
+              <div className="highlight-card__icon"><IconCloud size={28} /></div>
               <h3>Cloud Powered</h3>
               <p>All data saved to the cloud automatically. No manual saving, no USB backups, no data loss</p>
             </div>
             <div className="highlight-card">
-              <div className="highlight-card__icon">🔒</div>
+              <div className="highlight-card__icon"><IconLock size={28} /></div>
               <h3>Secure Access</h3>
               <p>Admin-only login with JWT authentication. No public signup — only approved users can access</p>
             </div>
@@ -137,47 +143,47 @@ export default function LandingPage() {
           <h2 className="landing-section__title">Everything You <span className="text-gradient">Need</span></h2>
           <div className="features-grid">
             <div className="feature-card">
-              <div className="feature-card__icon">📊</div>
+              <div className="feature-card__icon"><IconDashboard size={24} /></div>
               <h3>Dashboard</h3>
               <p>See total debit, credit, balance, and today&apos;s summary at a glance</p>
             </div>
             <div className="feature-card">
-              <div className="feature-card__icon">📒</div>
+              <div className="feature-card__icon"><IconLedger size={24} /></div>
               <h3>Register Ledger</h3>
               <p>Traditional bahi-khata layout with date grouping and running balance</p>
             </div>
             <div className="feature-card">
-              <div className="feature-card__icon">🔍</div>
+              <div className="feature-card__icon"><IconSearch size={24} /></div>
               <h3>Search &amp; Filter</h3>
               <p>Find any transaction by bill number, party name, date range, or type</p>
             </div>
             <div className="feature-card">
-              <div className="feature-card__icon">🔐</div>
+              <div className="feature-card__icon"><IconShield size={24} /></div>
               <h3>Full Audit Trail</h3>
               <p>Every action logged — login, transaction create/edit/delete, with timestamps</p>
             </div>
             <div className="feature-card">
-              <div className="feature-card__icon">📤</div>
+              <div className="feature-card__icon"><IconExport size={24} /></div>
               <h3>Export &amp; Print</h3>
               <p>Download as PDF, Excel, CSV or print directly in register format</p>
             </div>
             <div className="feature-card">
-              <div className="feature-card__icon">↩️</div>
+              <div className="feature-card__icon"><IconReturn size={24} /></div>
               <h3>Sales Return</h3>
               <p>Dedicated SR type that correctly adds to balance while staying visually distinct</p>
             </div>
             <div className="feature-card">
-              <div className="feature-card__icon">⚡</div>
+              <div className="feature-card__icon"><IconZap size={24} /></div>
               <h3>Real-time Sync</h3>
               <p>Cloud-synced data — updates appear instantly across all authorized devices</p>
             </div>
             <div className="feature-card">
-              <div className="feature-card__icon">🔔</div>
+              <div className="feature-card__icon"><IconBell size={24} /></div>
               <h3>Notifications</h3>
               <p>Toast notifications for every action — success or error, you always know what happened</p>
             </div>
             <div className="feature-card">
-              <div className="feature-card__icon">⚙️</div>
+              <div className="feature-card__icon"><IconSettings size={24} /></div>
               <h3>Settings</h3>
               <p>Configure shop name, currency, date format, sort order, and change password</p>
             </div>
