@@ -85,6 +85,34 @@ export const settingsAPI = {
     apiRequest('/api/settings', { method: 'PUT', body: data }),
 };
 
+// Party / Khata APIs
+export const partyAPI = {
+  getAll: (params?: Record<string, string>) => {
+    const query = params ? '?' + new URLSearchParams(params).toString() : '';
+    return apiRequest(`/api/parties${query}`);
+  },
+  create: (data: any) =>
+    apiRequest('/api/parties', { method: 'POST', body: data }),
+  getById: (id: string) =>
+    apiRequest(`/api/parties/${id}`),
+  update: (id: string, data: any) =>
+    apiRequest(`/api/parties/${id}`, { method: 'PUT', body: data }),
+  delete: (id: string) =>
+    apiRequest(`/api/parties/${id}`, { method: 'DELETE' }),
+  getPages: (partyId: string) =>
+    apiRequest(`/api/parties/${partyId}/pages`),
+  createPage: (partyId: string, data: any) =>
+    apiRequest(`/api/parties/${partyId}/pages`, { method: 'POST', body: data }),
+  getPageTransactions: (partyId: string, pageId: string, params?: Record<string, string>) => {
+    const query = params ? '?' + new URLSearchParams(params).toString() : '';
+    return apiRequest(`/api/parties/${partyId}/pages/${pageId}${query}`);
+  },
+  closePage: (partyId: string, pageId: string) =>
+    apiRequest(`/api/parties/${partyId}/pages/${pageId}`, { method: 'PATCH', body: { action: 'close' } }),
+  addTransaction: (partyId: string, pageId: string, data: any) =>
+    apiRequest(`/api/parties/${partyId}/pages/${pageId}/transactions`, { method: 'POST', body: data }),
+};
+
 // Health check
 export const healthAPI = {
   check: () => apiRequest('/api/health'),

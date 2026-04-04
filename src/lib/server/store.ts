@@ -33,6 +33,8 @@ export interface Transaction {
   sr: number;
   type: 'CIR' | 'DIR' | 'SR';
   balance: number;
+  partyId?: string;
+  pageId?: string;
   createdBy: string;
   updatedBy: string;
   createdAt: string;
@@ -58,11 +60,37 @@ export interface Settings {
   sortOrder: string;
 }
 
+export interface Party {
+  id: string;
+  name: string;
+  phone: string;
+  address: string;
+  notes: string;
+  isActive: boolean;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface LedgerPage {
+  id: string;
+  partyId: string;
+  pageNumber: number;
+  title: string;
+  status: 'open' | 'closed';
+  openingBalance: number;
+  createdBy: string;
+  createdAt: string;
+  closedAt: string | null;
+}
+
 interface Store {
   admins: Admin[];
   sessions: Session[];
   transactions: Transaction[];
   audit_logs: AuditLog[];
+  parties: Party[];
+  ledger_pages: LedgerPage[];
   settings: Settings;
   _seeded: boolean;
 }
@@ -76,6 +104,8 @@ function createStore(): Store {
     sessions: [],
     transactions: [],
     audit_logs: [],
+    parties: [],
+    ledger_pages: [],
     settings: {
       shopName: 'Shree Ganpati Agency',
       currency: 'INR',

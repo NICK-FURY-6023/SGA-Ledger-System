@@ -4,10 +4,11 @@ import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/lib/auth';
-import { IconDashboard, IconLedger, IconAudit, IconExport, IconSettings, IconMenu, IconLogout, IconUser, IconMonitor } from '@/components/icons/Icons';
+import { IconDashboard, IconLedger, IconAudit, IconExport, IconSettings, IconMenu, IconLogout, IconUser, IconMonitor, IconParty } from '@/components/icons/Icons';
 
 const adminNavItems = [
   { href: '/dashboard', label: 'Dashboard', Icon: IconDashboard },
+  { href: '/dashboard/parties', label: 'Parties', Icon: IconParty },
   { href: '/dashboard/ledger', label: 'Ledger', Icon: IconLedger },
   { href: '/dashboard/export', label: 'Export', Icon: IconExport },
   { href: '/dashboard/profile', label: 'Profile', Icon: IconUser },
@@ -15,10 +16,11 @@ const adminNavItems = [
 
 const devNavItems = [
   { href: '/dashboard', label: 'Dashboard', Icon: IconDashboard },
+  { href: '/dashboard/parties', label: 'Parties', Icon: IconParty },
   { href: '/dashboard/ledger', label: 'Ledger', Icon: IconLedger },
   { href: '/dashboard/export', label: 'Export', Icon: IconExport },
   { href: '/dashboard/audit', label: 'Audit Logs', Icon: IconAudit },
-  { href: '/dashboard/monitor', label: 'System Monitor', Icon: IconMonitor },
+  { href: '/dashboard/monitor', label: 'Health Monitor', Icon: IconMonitor },
   { href: '/dashboard/settings', label: 'Settings', Icon: IconSettings },
   { href: '/dashboard/profile', label: 'Profile', Icon: IconUser },
 ];

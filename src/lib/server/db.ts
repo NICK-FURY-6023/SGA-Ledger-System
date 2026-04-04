@@ -1,7 +1,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import bcrypt from 'bcryptjs';
 import { getDb, isFirebaseConfigured, markFirebaseUnavailable } from './firebase';
-import { getStore, Admin, Session, Transaction, AuditLog, Settings } from './store';
+import { getStore, Admin, Session, Transaction, AuditLog, Settings, Party, LedgerPage } from './store';
 
 function useFirestore(): boolean {
   return isFirebaseConfigured() && !!getDb();
@@ -475,5 +475,369 @@ export async function updateSettings(data: Partial<Settings>): Promise<Settings>
     if (data.dateFormat) store.settings.dateFormat = data.dateFormat;
     if (data.sortOrder) store.settings.sortOrder = data.sortOrder;
     return store.settings;
+  }
+}
+
+// ─── PARTY (KHATA) OPERATIONS ───
+
+export async function createParty(data: {
+  name: string; phone?: string; address?: string; notes?: string; adminId: string;
+}): Promise<Party> {
+  const party: Party = {
+    id: uuidv4(),
+    name: data.name.trim(),
+    phone: data.phone?.trim() || '',
+    address: data.address?.trim() || '',
+    notes: data.notes?.trim() || '',
+    isActive: true,
+    createdBy: data.adminId,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+
+  if (useFirestore()) {
+    const db = getDb()!;
+    await db.collection('parties').doc(party.id).set(party);
+  } else {
+    const store = getStore();
+    store.parties.push(party);
+  }
+  return party;
+}
+
+export async function getAllParties(filters?: { search?: string; page?: number; limit?: number }) {
+  const { search, page = 1, limit = 50 } = filters || {};
+
+  if (useFirestore()) {
+    const db = getDb()!;
+    const snapshot = await db.collection('parties').where('isActive', '==', true).get();
+    let parties = snapshot.docs.map(d => d.data() as Party);
+    parties.sort((a, b) => a.name.localeCompare(b.name));
+    if (search) parties = parties.filter(p =>
+      p.name.toLowerCase().includes(search.toLowerCase()) ||
+      p.phone.includes(search)
+    );
+
+    const partiesWithStats = await Promise.all(parties.map(async (p) => {
+      const txSnap = await db.collection('transactions').where('partyId', '==', p.id).get();
+      const pageSnap = await db.collection('ledger_pages').where('partyId', '==', p.id).get();
+      const txs = txSnap.docs.map(d => d.data());
+      return {
+        ...p,
+        totalPages: pageSnap.size,
+        totalTransactions: txSnap.size,
+        totalDebit: txs.reduce((s, t) => s + (t.debit || 0), 0),
+        totalCredit: txs.reduce((s, t) => s + (t.credit || 0), 0),
+        totalSR: txs.reduce((s, t) => s + (t.sr || 0), 0),
+        balance: txs.reduce((s, t) => s + (t.credit || 0) + (t.sr || 0) - (t.debit || 0), 0),
+        lastActivity: txs.length > 0 ? txs.sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0].createdAt : p.createdAt,
+      };
+    }));
+
+    const total = partiesWithStats.length;
+    const start = (page - 1) * limit;
+    return { parties: partiesWithStats.slice(start, start + limit), total, page, totalPages: Math.ceil(total / limit) };
+  } else {
+    const store = getStore();
+    let parties = store.parties.filter(p => p.isActive);
+    if (search) parties = parties.filter(p =>
+      p.name.toLowerCase().includes(search.toLowerCase()) ||
+      p.phone.includes(search)
+    );
+    parties.sort((a, b) => a.name.localeCompare(b.name));
+
+    const partiesWithStats = parties.map(p => {
+      const txs = store.transactions.filter(t => t.partyId === p.id);
+      const pages = store.ledger_pages.filter(lp => lp.partyId === p.id);
+      return {
+        ...p,
+        totalPages: pages.length,
+        totalTransactions: txs.length,
+        totalDebit: txs.reduce((s, t) => s + (t.debit || 0), 0),
+        totalCredit: txs.reduce((s, t) => s + (t.credit || 0), 0),
+        totalSR: txs.reduce((s, t) => s + (t.sr || 0), 0),
+        balance: txs.reduce((s, t) => s + (t.credit || 0) + (t.sr || 0) - (t.debit || 0), 0),
+        lastActivity: txs.length > 0 ? txs.sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0].createdAt : p.createdAt,
+      };
+    });
+
+    const total = partiesWithStats.length;
+    const start = (page - 1) * limit;
+    return { parties: partiesWithStats.slice(start, start + limit), total, page, totalPages: Math.ceil(total / limit) };
+  }
+}
+
+export async function getPartyById(id: string): Promise<Party | null> {
+  if (useFirestore()) {
+    const db = getDb()!;
+    const doc = await db.collection('parties').doc(id).get();
+    if (!doc.exists || !(doc.data() as Party).isActive) return null;
+    return doc.data() as Party;
+  } else {
+    const store = getStore();
+    return store.parties.find(p => p.id === id && p.isActive) || null;
+  }
+}
+
+export async function updateParty(id: string, data: Partial<Pick<Party, 'name' | 'phone' | 'address' | 'notes'>>): Promise<Party | null> {
+  const updates = { ...data, updatedAt: new Date().toISOString() };
+  if (useFirestore()) {
+    const db = getDb()!;
+    const docRef = db.collection('parties').doc(id);
+    const doc = await docRef.get();
+    if (!doc.exists) return null;
+    await docRef.update(updates);
+    const refreshed = await docRef.get();
+    return refreshed.data() as Party;
+  } else {
+    const store = getStore();
+    const party = store.parties.find(p => p.id === id);
+    if (!party) return null;
+    Object.assign(party, updates);
+    return party;
+  }
+}
+
+export async function deleteParty(id: string): Promise<boolean> {
+  if (useFirestore()) {
+    const db = getDb()!;
+    const docRef = db.collection('parties').doc(id);
+    const doc = await docRef.get();
+    if (!doc.exists) return false;
+    await docRef.update({ isActive: false, updatedAt: new Date().toISOString() });
+    return true;
+  } else {
+    const store = getStore();
+    const party = store.parties.find(p => p.id === id);
+    if (!party) return false;
+    party.isActive = false;
+    party.updatedAt = new Date().toISOString();
+    return true;
+  }
+}
+
+// ─── LEDGER PAGE OPERATIONS ───
+
+export async function createLedgerPage(data: {
+  partyId: string; title?: string; openingBalance?: number; adminId: string;
+}): Promise<LedgerPage> {
+  let pageNumber = 1;
+  if (useFirestore()) {
+    const db = getDb()!;
+    const snap = await db.collection('ledger_pages').where('partyId', '==', data.partyId).get();
+    if (!snap.empty) {
+      const nums = snap.docs.map(d => (d.data() as LedgerPage).pageNumber);
+      pageNumber = Math.max(...nums) + 1;
+    }
+  } else {
+    const store = getStore();
+    const existing = store.ledger_pages.filter(p => p.partyId === data.partyId);
+    if (existing.length > 0) pageNumber = Math.max(...existing.map(p => p.pageNumber)) + 1;
+  }
+
+  const lp: LedgerPage = {
+    id: uuidv4(),
+    partyId: data.partyId,
+    pageNumber,
+    title: data.title?.trim() || `Page ${pageNumber}`,
+    status: 'open',
+    openingBalance: data.openingBalance || 0,
+    createdBy: data.adminId,
+    createdAt: new Date().toISOString(),
+    closedAt: null,
+  };
+
+  if (useFirestore()) {
+    const db = getDb()!;
+    await db.collection('ledger_pages').doc(lp.id).set(lp);
+  } else {
+    const store = getStore();
+    store.ledger_pages.push(lp);
+  }
+  return lp;
+}
+
+export async function getPartyPages(partyId: string) {
+  if (useFirestore()) {
+    const db = getDb()!;
+    const snap = await db.collection('ledger_pages').where('partyId', '==', partyId).get();
+    const pages = snap.docs.map(d => d.data() as LedgerPage);
+    pages.sort((a, b) => a.pageNumber - b.pageNumber);
+
+    return await Promise.all(pages.map(async (p) => {
+      const txSnap = await db.collection('transactions').where('pageId', '==', p.id).get();
+      const txs = txSnap.docs.map(d => d.data());
+      const totalDebit = txs.reduce((s, t) => s + (t.debit || 0), 0);
+      const totalCredit = txs.reduce((s, t) => s + (t.credit || 0), 0);
+      const totalSR = txs.reduce((s, t) => s + (t.sr || 0), 0);
+      return {
+        ...p,
+        transactionCount: txSnap.size,
+        totalDebit, totalCredit, totalSR,
+        closingBalance: p.openingBalance + totalCredit + totalSR - totalDebit,
+      };
+    }));
+  } else {
+    const store = getStore();
+    const pages = store.ledger_pages.filter(p => p.partyId === partyId);
+    pages.sort((a, b) => a.pageNumber - b.pageNumber);
+    return pages.map(p => {
+      const txs = store.transactions.filter(t => t.pageId === p.id);
+      const totalDebit = txs.reduce((s, t) => s + (t.debit || 0), 0);
+      const totalCredit = txs.reduce((s, t) => s + (t.credit || 0), 0);
+      const totalSR = txs.reduce((s, t) => s + (t.sr || 0), 0);
+      return {
+        ...p,
+        transactionCount: txs.length,
+        totalDebit, totalCredit, totalSR,
+        closingBalance: p.openingBalance + totalCredit + totalSR - totalDebit,
+      };
+    });
+  }
+}
+
+export async function getLedgerPageById(pageId: string): Promise<LedgerPage | null> {
+  if (useFirestore()) {
+    const db = getDb()!;
+    const doc = await db.collection('ledger_pages').doc(pageId).get();
+    if (!doc.exists) return null;
+    return doc.data() as LedgerPage;
+  } else {
+    const store = getStore();
+    return store.ledger_pages.find(p => p.id === pageId) || null;
+  }
+}
+
+export async function getPageTransactions(pageId: string, filters?: { page?: number; limit?: number }) {
+  const { page = 1, limit = 50 } = filters || {};
+
+  if (useFirestore()) {
+    const db = getDb()!;
+    const snap = await db.collection('transactions')
+      .where('pageId', '==', pageId)
+      .orderBy('date', 'asc')
+      .orderBy('createdAt', 'asc')
+      .get();
+    const transactions = snap.docs.map(d => d.data() as Transaction);
+
+    const pageDoc = await db.collection('ledger_pages').doc(pageId).get();
+    const lp = pageDoc.data() as LedgerPage;
+    let running = lp?.openingBalance || 0;
+    const withBalance = transactions.map(t => {
+      running += (t.credit || 0) + (t.sr || 0) - (t.debit || 0);
+      return { ...t, pageBalance: running };
+    });
+
+    const total = withBalance.length;
+    const start = (page - 1) * limit;
+    return { transactions: withBalance.slice(start, start + limit), total, page, totalPages: Math.ceil(total / limit), openingBalance: lp?.openingBalance || 0 };
+  } else {
+    const store = getStore();
+    const txs = store.transactions.filter(t => t.pageId === pageId);
+    txs.sort((a, b) => {
+      const d = new Date(a.date).getTime() - new Date(b.date).getTime();
+      return d !== 0 ? d : new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+    });
+
+    const lp = store.ledger_pages.find(p => p.id === pageId);
+    let running = lp?.openingBalance || 0;
+    const withBalance = txs.map(t => {
+      running += (t.credit || 0) + (t.sr || 0) - (t.debit || 0);
+      return { ...t, pageBalance: running };
+    });
+
+    const total = withBalance.length;
+    const start = (page - 1) * limit;
+    return { transactions: withBalance.slice(start, start + limit), total, page, totalPages: Math.ceil(total / limit), openingBalance: lp?.openingBalance || 0 };
+  }
+}
+
+export async function closeLedgerPage(pageId: string): Promise<LedgerPage | null> {
+  if (useFirestore()) {
+    const db = getDb()!;
+    const docRef = db.collection('ledger_pages').doc(pageId);
+    const doc = await docRef.get();
+    if (!doc.exists) return null;
+    const updated = { ...doc.data() as LedgerPage, status: 'closed' as const, closedAt: new Date().toISOString() };
+    await docRef.set(updated);
+    return updated;
+  } else {
+    const store = getStore();
+    const p = store.ledger_pages.find(lp => lp.id === pageId);
+    if (!p) return null;
+    p.status = 'closed';
+    p.closedAt = new Date().toISOString();
+    return p;
+  }
+}
+
+export async function createPageTransaction(data: {
+  pageId: string; partyId: string; date: string; partyName: string;
+  billNo: string; folio?: string; debit: number; credit: number;
+  sr: number; type: 'CIR' | 'DIR' | 'SR'; adminId: string;
+}): Promise<Transaction> {
+  const tx: Transaction = {
+    id: uuidv4(),
+    date: data.date,
+    partyName: data.partyName.trim(),
+    billNo: data.billNo.trim(),
+    folio: data.folio || '',
+    debit: data.debit,
+    credit: data.credit,
+    sr: data.sr,
+    type: data.type,
+    balance: 0,
+    partyId: data.partyId,
+    pageId: data.pageId,
+    createdBy: data.adminId,
+    updatedBy: data.adminId,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+
+  if (useFirestore()) {
+    const db = getDb()!;
+    await db.collection('transactions').doc(tx.id).set(tx);
+    await recalculateBalancesFirestore();
+    const doc = await db.collection('transactions').doc(tx.id).get();
+    return doc.data() as Transaction;
+  } else {
+    const store = getStore();
+    store.transactions.push(tx);
+    recalculateBalancesMemory();
+    return store.transactions.find(t => t.id === tx.id)!;
+  }
+}
+
+// ─── HEALTH / STATS OPERATIONS ───
+
+export async function getSystemStats() {
+  if (useFirestore()) {
+    const db = getDb()!;
+    const [txSnap, partySnap, pageSnap, auditSnap, adminSnap] = await Promise.all([
+      db.collection('transactions').get(),
+      db.collection('parties').where('isActive', '==', true).get(),
+      db.collection('ledger_pages').get(),
+      db.collection('audit_logs').get(),
+      db.collection('admins').where('isActive', '==', true).get(),
+    ]);
+    return {
+      totalTransactions: txSnap.size,
+      totalParties: partySnap.size,
+      totalPages: pageSnap.size,
+      totalAuditLogs: auditSnap.size,
+      totalAdmins: adminSnap.size,
+      database: 'firestore' as const,
+    };
+  } else {
+    const store = getStore();
+    return {
+      totalTransactions: store.transactions.length,
+      totalParties: store.parties.filter(p => p.isActive).length,
+      totalPages: store.ledger_pages.length,
+      totalAuditLogs: store.audit_logs.length,
+      totalAdmins: store.admins.filter(a => a.isActive).length,
+      database: 'in-memory' as const,
+    };
   }
 }

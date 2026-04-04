@@ -76,6 +76,11 @@
 .audit__action-badge--TRANSACTION_UPDATE { background: rgba(255, 140, 0, 0.15); color: var(--orange-light); }
 .audit__action-badge--TRANSACTION_DELETE { background: rgba(255, 61, 0, 0.15); color: var(--danger); }
 .audit__action-badge--SETTINGS_UPDATE { background: rgba(255, 214, 0, 0.15); color: var(--warning); }
+.audit__action-badge--PARTY_CREATE { background: rgba(0, 200, 83, 0.15); color: var(--success); }
+.audit__action-badge--PARTY_UPDATE { background: rgba(255, 140, 0, 0.15); color: var(--orange-light); }
+.audit__action-badge--PARTY_DELETE { background: rgba(255, 61, 0, 0.15); color: var(--danger); }
+.audit__action-badge--PAGE_CREATE { background: rgba(0, 102, 255, 0.15); color: var(--blue-light); }
+.audit__action-badge--PAGE_CLOSE { background: rgba(160, 160, 176, 0.15); color: var(--text-secondary); }
 
 /* Export page */
 .export {
