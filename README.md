@@ -15,24 +15,25 @@ A secure, realtime, admin-only digital bahi-khata system with a cinematic 3D lan
 ## Project Structure
 
 ```
-src/
-└── frontend/              # Single Next.js app (deploys on Vercel free tier)
-    └── src/
-        ├── app/           # Pages + API Routes
-        │   ├── api/       # Backend API (auth, transactions, audit, settings)
-        │   ├── dashboard/ # Dashboard, ledger, audit, export, settings pages
-        │   ├── login/     # Login page
-        │   └── page.tsx   # 3D Landing page
-        ├── components/    # React components (3D scene, etc.)
-        ├── lib/           # Client: API client, auth context, utilities
-        │   └── server/    # Server: store, JWT auth, audit service
-        └── styles/        # CSS (landing, login, dashboard, ledger, pages)
+├── public/                # Static assets (logo)
+├── src/
+│   ├── app/               # Pages + API Routes
+│   │   ├── api/           # Backend API (auth, transactions, audit, settings)
+│   │   ├── dashboard/     # Dashboard, ledger, audit, export, settings pages
+│   │   ├── login/         # Login page
+│   │   └── page.tsx       # 3D Landing page
+│   ├── components/        # React components (3D scene, etc.)
+│   ├── lib/               # Client: API client, auth context, utilities
+│   │   └── server/        # Server: store, JWT auth, audit service
+│   └── styles/            # CSS (landing, login, dashboard, ledger, pages)
+├── package.json
+├── next.config.js
+└── tsconfig.json
 ```
 
 ## Quick Start
 
 ```bash
-cd src/frontend
 npm install
 npm run dev       # Runs on http://localhost:3000
 ```
@@ -81,8 +82,7 @@ npm run dev       # Runs on http://localhost:3000
 
 1. Push this repo to GitHub
 2. Go to [vercel.com](https://vercel.com) → Import Project
-3. Set **Root Directory** to `src/frontend`
-4. Add Environment Variable: `JWT_SECRET` = (any secret string)
-5. Click Deploy ✅
+3. Add Environment Variable: `JWT_SECRET` = (any secret string)
+4. Click Deploy ✅
 
 That's it — single deploy, no separate backend needed!
