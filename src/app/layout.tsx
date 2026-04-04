@@ -9,7 +9,7 @@ import { AuthProvider } from '@/lib/auth';
 import { Toaster } from 'react-hot-toast';
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_URL || 'https://sgala.vercel.app'),
+  metadataBase: new URL(process.env.NEXT_PUBLIC_URL || 'https://sga-ledger-system.vercel.app'),
   title: 'SGALA — Shree Ganpati Agency Ledger Audit System',
   description: 'A secure, realtime, admin-only digital bahi-khata system for hardware & bath fittings. Cloud-synced ledger with audit trail, auto-save, and traditional register-style UI.',
   keywords: ['ledger', 'bahi-khata', 'accounting', 'hardware shop', 'bath fittings', 'audit', 'SGALA', 'Shree Ganpati Agency'],
