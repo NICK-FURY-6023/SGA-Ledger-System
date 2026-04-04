@@ -42,8 +42,8 @@ async function apiRequest(endpoint: string, options: RequestOptions = {}) {
 
 // Auth APIs
 export const authAPI = {
-  login: (username: string, password: string) =>
-    apiRequest('/api/auth/login', { method: 'POST', body: { username, password } }),
+  login: (email: string, password: string) =>
+    apiRequest('/api/auth/login', { method: 'POST', body: { email, password } }),
   logout: () =>
     apiRequest('/api/auth/logout', { method: 'POST' }),
   me: () =>

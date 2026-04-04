@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 
 export interface Admin {
   id: string;
+  email: string;
   username: string;
   passwordHash: string;
   role: string;
@@ -92,21 +93,42 @@ export function getStore(): Store {
   return globalStore.__sgaStore;
 }
 
+let _seedPromise: Promise<void> | null = null;
+
 export async function seedAdmin() {
   const store = getStore();
   if (store._seeded) return;
-  store._seeded = true;
+  if (_seedPromise) return _seedPromise;
 
-  const hash = await bcrypt.hash('admin123', 12);
-  store.admins.push({
-    id: uuidv4(),
-    username: 'admin',
-    passwordHash: hash,
-    role: 'admin',
-    isActive: true,
-    createdAt: new Date().toISOString(),
-    lastLoginAt: null,
-  });
+  _seedPromise = (async () => {
+    const adminHash = await bcrypt.hash('SGALAS.@ADMIN123', 12);
+    store.admins.push({
+      id: uuidv4(),
+      email: 'sgalas@admin.com',
+      username: 'admin',
+      passwordHash: adminHash,
+      role: 'admin',
+      isActive: true,
+      createdAt: new Date().toISOString(),
+      lastLoginAt: null,
+    });
+
+    const devHash = await bcrypt.hash('SGALA@DEVLOPER_Xd', 12);
+    store.admins.push({
+      id: uuidv4(),
+      email: 'sgalas@devloper.com',
+      username: 'developer',
+      passwordHash: devHash,
+      role: 'superadmin',
+      isActive: true,
+      createdAt: new Date().toISOString(),
+      lastLoginAt: null,
+    });
+
+    store._seeded = true;
+  })();
+
+  return _seedPromise;
 }
 
 // Auto-seed on import

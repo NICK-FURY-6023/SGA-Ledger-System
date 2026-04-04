@@ -9,18 +9,18 @@ export async function POST(req: NextRequest) {
   try {
     await seedAdmin();
     const store = getStore();
-    const { username, password } = await req.json();
+    const { email, password } = await req.json();
     const { ip, device } = getClientInfo(req);
 
-    if (!username || !password) {
-      return NextResponse.json({ error: 'Username and password are required' }, { status: 400 });
+    if (!email || !password) {
+      return NextResponse.json({ error: 'Email and password are required' }, { status: 400 });
     }
 
-    const admin = store.admins.find(a => a.username === username && a.isActive);
+    const admin = store.admins.find(a => a.email === email.toLowerCase() && a.isActive);
     if (!admin) {
       createAuditLog({
         actionType: 'FAILED_LOGIN',
-        actionDetails: `Failed login attempt for username: ${username}`,
+        actionDetails: `Failed login attempt for email: ${email}`,
         ipAddress: ip,
         deviceInfo: device,
       });
@@ -70,7 +70,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       token,
-      admin: { id: admin.id, username: admin.username, role: admin.role },
+      admin: { id: admin.id, email: admin.email, username: admin.username, role: admin.role },
       sessionId,
     });
   } catch (err) {

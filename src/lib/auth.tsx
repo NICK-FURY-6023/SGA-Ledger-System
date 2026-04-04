@@ -5,6 +5,7 @@ import { authAPI } from './api';
 
 interface Admin {
   id: string;
+  email: string;
   username: string;
   role: string;
 }
@@ -13,7 +14,7 @@ interface AuthContextType {
   admin: Admin | null;
   token: string | null;
   loading: boolean;
-  login: (username: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   isAuthenticated: boolean;
 }
@@ -50,8 +51,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setLoading(false);
   }, []);
 
-  const login = useCallback(async (username: string, password: string) => {
-    const data = await authAPI.login(username, password);
+  const login = useCallback(async (email: string, password: string) => {
+    const data = await authAPI.login(email, password);
     setToken(data.token);
     setAdmin(data.admin);
     localStorage.setItem('sga_token', data.token);
