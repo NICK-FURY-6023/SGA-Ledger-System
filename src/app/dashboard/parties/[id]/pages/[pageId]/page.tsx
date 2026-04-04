@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { partyAPI } from '@/lib/api';
@@ -11,12 +11,17 @@ import {
   IconPlus, IconClose, IconWarning, IconLock, IconUnlock,
   IconCalendar, IconCreditIn, IconDebitOut, IconReturn,
   IconBookOpen, IconChevronLeft, IconChevronRight, IconPages,
-  IconAlertTriangle,
+  IconAlertTriangle, IconParty, IconPhone, IconMapPin, IconClock,
 } from '@/components/icons/Icons';
 
 interface Party {
   id: string;
   name: string;
+  phone?: string;
+  address?: string;
+  notes?: string;
+  createdBy: string;
+  createdAt: string;
 }
 
 interface PageInfo {
@@ -71,11 +76,16 @@ export default function PageLedgerView() {
   const [formError, setFormError] = useState('');
   const [saving, setSaving] = useState(false);
 
+  // Double-click prevention
+  const submitLockRef = useRef(false);
+
   const loadPartyData = useCallback(async () => {
     try {
       const data = await partyAPI.getById(partyId);
-      setParty(data.party);
-      const matchedPage = (data.pages || []).find((p: PageInfo) => p.id === pageId);
+      // API returns { ...party, pages } — party fields at top level
+      const { pages, ...partyData } = data;
+      setParty(partyData as Party);
+      const matchedPage = (pages || []).find((p: PageInfo) => p.id === pageId);
       if (matchedPage) setPageInfo(matchedPage);
     } catch {
       toast.error('Failed to load party details');
@@ -111,6 +121,7 @@ export default function PageLedgerView() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submitLockRef.current) return;
     setFormError('');
 
     const amount = parseFloat(formData.amount);
@@ -123,6 +134,7 @@ export default function PageLedgerView() {
       return;
     }
 
+    submitLockRef.current = true;
     setSaving(true);
     try {
       const payload = {
@@ -147,6 +159,7 @@ export default function PageLedgerView() {
       toast.error(msg);
     } finally {
       setSaving(false);
+      submitLockRef.current = false;
     }
   };
 
@@ -192,6 +205,52 @@ export default function PageLedgerView() {
       >
         <IconChevronLeft size={14} /> {party?.name || 'Party'} / Pages
       </Link>
+
+      {/* Customer Info Card */}
+      {party && (
+        <div style={{
+          background: 'var(--bg-card)',
+          border: '1px solid var(--border)',
+          borderRadius: 'var(--radius-md)',
+          padding: '1.2rem 1.5rem',
+          marginBottom: '1.5rem',
+          display: 'flex',
+          flexWrap: 'wrap',
+          gap: '1.5rem',
+          alignItems: 'center',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: '200px' }}>
+            <div style={{
+              width: 44, height: 44, borderRadius: '12px',
+              background: 'linear-gradient(135deg, var(--blue-primary), var(--blue-light))',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: '0 2px 12px var(--blue-glow)',
+            }}>
+              <IconParty size={22} />
+            </div>
+            <div>
+              <div style={{ fontWeight: 700, fontSize: '1.1rem', color: 'var(--text-primary)' }}>
+                {party.name}
+              </div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Customer Khata</div>
+            </div>
+          </div>
+          {party.phone && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
+              <IconPhone size={14} /> {party.phone}
+            </div>
+          )}
+          {party.address && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
+              <IconMapPin size={14} /> {party.address}
+            </div>
+          )}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)', fontSize: '0.78rem', marginLeft: 'auto' }}>
+            <IconClock size={13} />
+            Created: {formatDate(party.createdAt)} by {party.createdBy}
+          </div>
+        </div>
+      )}
 
       {/* Page Header */}
       <div className="main__header">

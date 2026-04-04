@@ -68,8 +68,10 @@ export default function PartyDetailPage() {
     setLoading(true);
     try {
       const data = await partyAPI.getById(id);
-      setParty(data.party);
-      setPages(data.pages || []);
+      // API returns { ...party, pages } — party fields at top level
+      const { pages: pagesData, ...partyData } = data;
+      setParty(partyData as Party);
+      setPages(pagesData || []);
     } catch {
       toast.error('Failed to load party details');
     } finally {

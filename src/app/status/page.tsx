@@ -203,8 +203,7 @@ export default function StatusPage() {
   const [loading, setLoading] = useState(true);
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [lastRefresh, setLastRefresh] = useState('');
-  const [hoveredBar, setHoveredBar] = useState<number | null>(null);
-  const [hoveredService, setHoveredService] = useState<string | null>(null);
+  const [hoveredBar, setHoveredBar] = useState<{ svc: string; idx: number } | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const loadHealth = useCallback(async () => {
@@ -280,13 +279,6 @@ export default function StatusPage() {
     if (entry.latency < 300) return '#7CB342';
     if (entry.latency < 500) return '#FF9800';
     return '#FF6D00';
-  };
-
-  const getBarHeight = (entry: UptimeEntry) => {
-    if (entry.status === 'down') return '100%';
-    const maxLat = 500;
-    const pct = Math.max(20, Math.min(100, (entry.latency / maxLat) * 100));
-    return `${pct}%`;
   };
 
   const overallOk = health?.status === 'ok';
@@ -414,146 +406,125 @@ export default function StatusPage() {
           ))}
         </div>
 
-        {/* ─── Services Status ─── */}
+        {/* ─── Service Uptime ─── */}
         <div style={{ marginBottom: '2rem' }}>
           <h2 style={{ fontSize: '0.85rem', color: '#666', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <SvgServer size={14} /> Current Status
+            <SvgServer size={14} /> Service Uptime
           </h2>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0' }}>
-            {services.map((svc, i) => (
-              <div
-                key={svc.key}
-                onMouseEnter={() => setHoveredService(svc.key)}
-                onMouseLeave={() => setHoveredService(null)}
-                style={{
-                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                  padding: '1rem 1.2rem',
-                  background: hoveredService === svc.key ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.02)',
-                  borderTop: i === 0 ? '1px solid rgba(255,255,255,0.06)' : 'none',
-                  borderBottom: '1px solid rgba(255,255,255,0.06)',
-                  borderLeft: '1px solid rgba(255,255,255,0.06)',
-                  borderRight: '1px solid rgba(255,255,255,0.06)',
-                  borderRadius: i === 0 ? '12px 12px 0 0' : i === services.length - 1 ? '0 0 12px 12px' : '0',
-                  transition: 'background 0.2s',
-                  cursor: 'default',
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
-                  <span style={{ color: getStatusColor(svc.status) }}>{svc.icon}</span>
-                  <div>
-                    <div style={{ fontSize: '0.9rem', fontWeight: 600, color: '#E0E0E0' }}>{svc.name}</div>
-                    <div style={{
-                      fontSize: '0.72rem', color: '#666', maxHeight: hoveredService === svc.key ? '20px' : '0',
-                      overflow: 'hidden', transition: 'max-height 0.3s ease, opacity 0.3s',
-                      opacity: hoveredService === svc.key ? 1 : 0,
-                    }}>
-                      {svc.detail}
-                    </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            {services.map((svc) => (
+              <div key={svc.key} style={{
+                background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)',
+                borderRadius: '12px', padding: '1.2rem',
+              }}>
+                {/* Service header: name + status badge */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.8rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                    <span style={{ color: getStatusColor(svc.status) }}>{svc.icon}</span>
+                    <span style={{ fontSize: '0.9rem', fontWeight: 600, color: '#E0E0E0' }}>{svc.name}</span>
+                  </div>
+                  <div style={{
+                    display: 'flex', alignItems: 'center', gap: '6px',
+                    padding: '4px 12px', borderRadius: '20px', fontSize: '0.72rem', fontWeight: 700,
+                    background: `${getStatusColor(svc.status)}12`, color: getStatusColor(svc.status),
+                    textTransform: 'uppercase', letterSpacing: '0.5px',
+                  }}>
+                    <div style={{ width: 6, height: 6, borderRadius: '50%', background: getStatusColor(svc.status) }} />
+                    {svc.status}
                   </div>
                 </div>
-                <div style={{
-                  display: 'flex', alignItems: 'center', gap: '6px',
-                  padding: '4px 12px', borderRadius: '20px', fontSize: '0.72rem', fontWeight: 700,
-                  background: `${getStatusColor(svc.status)}12`, color: getStatusColor(svc.status),
-                  textTransform: 'uppercase', letterSpacing: '0.5px',
-                }}>
-                  <div style={{ width: 6, height: 6, borderRadius: '50%', background: getStatusColor(svc.status) }} />
-                  {svc.status}
+
+                {/* Horizontal line bar of colored segments */}
+                <div style={{ display: 'flex', gap: '2px', height: '34px', position: 'relative' }}>
+                  {uptimeHistory.length === 0 ? (
+                    <div style={{ color: '#555', fontSize: '0.78rem', display: 'flex', alignItems: 'center', width: '100%', justifyContent: 'center' }}>
+                      Collecting uptime data...
+                    </div>
+                  ) : (
+                    uptimeHistory.map((entry, i) => (
+                      <Tooltip
+                        key={i}
+                        visible={hoveredBar?.svc === svc.key && hoveredBar?.idx === i}
+                        content={
+                          <div>
+                            <div style={{ fontWeight: 700, color: '#fff', marginBottom: '4px', fontSize: '0.78rem' }}>
+                              {entry.time}
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '3px' }}>
+                              <div style={{ width: 6, height: 6, borderRadius: '50%', background: getBarColor(entry) }} />
+                              <span style={{ color: getBarColor(entry), fontWeight: 600, textTransform: 'uppercase' }}>
+                                {entry.status}
+                              </span>
+                            </div>
+                            <div style={{ color: '#aaa' }}>
+                              Latency: <span style={{ color: '#fff', fontFamily: "'JetBrains Mono', monospace" }}>{entry.latency}ms</span>
+                            </div>
+                            {entry.checkedAt && (
+                              <div style={{ color: '#666', fontSize: '0.68rem', marginTop: '3px' }}>
+                                {new Date(entry.checkedAt).toLocaleString('en-IN')}
+                              </div>
+                            )}
+                          </div>
+                        }
+                      >
+                        <div
+                          onMouseEnter={() => setHoveredBar({ svc: svc.key, idx: i })}
+                          onMouseLeave={() => setHoveredBar(null)}
+                          style={{
+                            width: '4px', minWidth: '3px', flex: '1 1 4px', height: '100%',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          <div style={{
+                            width: '100%', height: '100%',
+                            borderRadius: '2px', transition: 'all 0.15s',
+                            background: getBarColor(entry),
+                            opacity: hoveredBar?.svc === svc.key && hoveredBar?.idx === i ? 1 : 0.7,
+                            transform: hoveredBar?.svc === svc.key && hoveredBar?.idx === i ? 'scaleY(1.15)' : 'scaleY(1)',
+                            boxShadow: hoveredBar?.svc === svc.key && hoveredBar?.idx === i ? `0 0 8px ${getBarColor(entry)}60` : 'none',
+                          }} />
+                        </div>
+                      </Tooltip>
+                    ))
+                  )}
+                </div>
+
+                {/* Uptime percentage below the bar */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '6px' }}>
+                  <span style={{ fontSize: '0.75rem', color: '#888', fontFamily: "'JetBrains Mono', monospace" }}>
+                    {uptimePercent}% uptime
+                  </span>
+                  <span style={{ fontSize: '0.68rem', color: '#555' }}>
+                    {uptimeHistory.length} checks
+                  </span>
                 </div>
               </div>
             ))}
           </div>
-        </div>
 
-        {/* ─── Uptime History with Hover Tooltips ─── */}
-        <div style={{ marginBottom: '2rem' }}>
-          <h2 style={{ fontSize: '0.85rem', color: '#666', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <SvgActivity size={14} /> Uptime History
-            <span style={{ fontSize: '0.7rem', fontWeight: 400, color: '#555', marginLeft: 'auto' }}>
-              {uptimeHistory.length} checks recorded — hover for details
+          {/* Legend and 90-Day note */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1rem', padding: '0 0.2rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+            <div style={{ display: 'flex', gap: '14px', fontSize: '0.68rem', color: '#555' }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <span style={{ width: 8, height: 8, borderRadius: 2, background: '#00C853', display: 'inline-block' }} />
+                Fast (&lt;100ms)
+              </span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <span style={{ width: 8, height: 8, borderRadius: 2, background: '#7CB342', display: 'inline-block' }} />
+                Normal
+              </span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <span style={{ width: 8, height: 8, borderRadius: 2, background: '#FF9800', display: 'inline-block' }} />
+                Degraded
+              </span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <span style={{ width: 8, height: 8, borderRadius: 2, background: '#FF3D00', display: 'inline-block' }} />
+                Down
+              </span>
+            </div>
+            <span style={{ fontSize: '0.68rem', color: '#555' }}>
+              90-Day Uptime — hover any segment for details
             </span>
-          </h2>
-          <div style={{
-            background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)',
-            borderRadius: '12px', padding: '1.2rem',
-          }}>
-            <div style={{ display: 'flex', gap: '2px', alignItems: 'flex-end', height: '80px', position: 'relative' }}>
-              {uptimeHistory.length === 0 ? (
-                <div style={{ color: '#555', fontSize: '0.82rem', width: '100%', textAlign: 'center', paddingTop: '28px' }}>
-                  Collecting uptime data... auto-refreshes every 30 seconds
-                </div>
-              ) : (
-                uptimeHistory.map((entry, i) => (
-                  <Tooltip
-                    key={i}
-                    visible={hoveredBar === i}
-                    content={
-                      <div>
-                        <div style={{ fontWeight: 700, color: '#fff', marginBottom: '4px', fontSize: '0.78rem' }}>
-                          {entry.time}
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '3px' }}>
-                          <div style={{ width: 6, height: 6, borderRadius: '50%', background: getBarColor(entry) }} />
-                          <span style={{ color: getBarColor(entry), fontWeight: 600, textTransform: 'uppercase' }}>
-                            {entry.status}
-                          </span>
-                        </div>
-                        <div style={{ color: '#aaa' }}>
-                          Latency: <span style={{ color: '#fff', fontFamily: "'JetBrains Mono', monospace" }}>{entry.latency}ms</span>
-                        </div>
-                        {entry.checkedAt && (
-                          <div style={{ color: '#666', fontSize: '0.68rem', marginTop: '3px' }}>
-                            {new Date(entry.checkedAt).toLocaleString('en-IN')}
-                          </div>
-                        )}
-                      </div>
-                    }
-                  >
-                    <div
-                      onMouseEnter={() => setHoveredBar(i)}
-                      onMouseLeave={() => setHoveredBar(null)}
-                      style={{
-                        flex: 1, minWidth: 4, maxWidth: 16, height: '100%',
-                        display: 'flex', alignItems: 'flex-end', cursor: 'pointer',
-                      }}
-                    >
-                      <div style={{
-                        width: '100%', height: getBarHeight(entry),
-                        borderRadius: '2px 2px 0 0', transition: 'all 0.2s',
-                        background: getBarColor(entry),
-                        opacity: hoveredBar === i ? 1 : 0.7,
-                        transform: hoveredBar === i ? 'scaleY(1.1)' : 'scaleY(1)',
-                        transformOrigin: 'bottom',
-                        boxShadow: hoveredBar === i ? `0 0 8px ${getBarColor(entry)}60` : 'none',
-                      }} />
-                    </div>
-                  </Tooltip>
-                ))
-              )}
-            </div>
-            {/* Timeline labels */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '8px', fontSize: '0.68rem', color: '#555' }}>
-              <span>{uptimeHistory[0]?.time || 'Oldest'}</span>
-              <div style={{ display: 'flex', gap: '14px' }}>
-                <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <span style={{ width: 8, height: 8, borderRadius: 2, background: '#00C853', display: 'inline-block' }} />
-                  Fast (&lt;100ms)
-                </span>
-                <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <span style={{ width: 8, height: 8, borderRadius: 2, background: '#7CB342', display: 'inline-block' }} />
-                  Normal
-                </span>
-                <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <span style={{ width: 8, height: 8, borderRadius: 2, background: '#FF9800', display: 'inline-block' }} />
-                  Slow
-                </span>
-                <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <span style={{ width: 8, height: 8, borderRadius: 2, background: '#FF3D00', display: 'inline-block' }} />
-                  Down
-                </span>
-              </div>
-              <span>{uptimeHistory[uptimeHistory.length - 1]?.time || 'Latest'}</span>
-            </div>
           </div>
         </div>
 
@@ -641,8 +612,8 @@ export default function StatusPage() {
             </p>
             <p style={{ margin: 0 }}>
               Uptime history is maintained server-side and persists across page reloads (up to 90 checks).
-              Bars show latency — taller = slower. Hover any bar for exact timing.
-              Green = fast (&lt;100ms), Yellow-Green = normal, Orange = slow (&gt;300ms), Red = down.
+              Each service displays a horizontal bar of color-coded segments. Hover any segment for exact timing.
+              Green = fast (&lt;100ms), Yellow-Green = normal, Orange = degraded (&gt;300ms), Red = down.
             </p>
           </div>
         </div>

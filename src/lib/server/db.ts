@@ -841,3 +841,64 @@ export async function getSystemStats() {
     };
   }
 }
+
+// ─── BACKUP / EXPORT ───
+
+export async function getFullBackup() {
+  if (useFirestore()) {
+    const db = getDb()!;
+    const [txSnap, partySnap, pageSnap, auditSnap] = await Promise.all([
+      db.collection('transactions').get(),
+      db.collection('parties').where('isActive', '==', true).get(),
+      db.collection('ledger_pages').get(),
+      db.collection('audit_logs').orderBy('timestamp', 'desc').limit(500).get(),
+    ]);
+    return {
+      exportedAt: new Date().toISOString(),
+      database: 'firestore',
+      parties: partySnap.docs.map(d => d.data()),
+      ledgerPages: pageSnap.docs.map(d => d.data()),
+      transactions: txSnap.docs.map(d => d.data()),
+      auditLogs: auditSnap.docs.map(d => d.data()),
+    };
+  } else {
+    const store = getStore();
+    return {
+      exportedAt: new Date().toISOString(),
+      database: 'in-memory',
+      parties: store.parties.filter(p => p.isActive),
+      ledgerPages: store.ledger_pages,
+      transactions: store.transactions,
+      auditLogs: store.audit_logs.slice(-500),
+    };
+  }
+}
+
+export async function getPartyBackup(partyId: string) {
+  const party = await getPartyById(partyId);
+  if (!party) return null;
+
+  if (useFirestore()) {
+    const db = getDb()!;
+    const [pageSnap, txSnap] = await Promise.all([
+      db.collection('ledger_pages').where('partyId', '==', partyId).get(),
+      db.collection('transactions').where('partyId', '==', partyId).get(),
+    ]);
+    return {
+      exportedAt: new Date().toISOString(),
+      database: 'firestore',
+      party,
+      ledgerPages: pageSnap.docs.map(d => d.data()),
+      transactions: txSnap.docs.map(d => d.data()),
+    };
+  } else {
+    const store = getStore();
+    return {
+      exportedAt: new Date().toISOString(),
+      database: 'in-memory',
+      party,
+      ledgerPages: store.ledger_pages.filter(p => p.partyId === partyId),
+      transactions: store.transactions.filter(t => t.partyId === partyId),
+    };
+  }
+}

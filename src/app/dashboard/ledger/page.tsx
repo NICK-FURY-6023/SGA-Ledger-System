@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { transactionAPI } from '@/lib/api';
 import { formatCurrency, formatDate, getTodayISO } from '@/lib/utils';
 import toast from 'react-hot-toast';
@@ -23,6 +23,10 @@ interface Transaction {
   balance: number;
   createdAt: string;
 }
+
+type EditableField = 'date' | 'partyName' | 'billNo' | 'folio' | 'debit' | 'credit' | 'sr';
+
+const FIELD_ORDER: EditableField[] = ['date', 'partyName', 'billNo', 'folio', 'debit', 'credit', 'sr'];
 
 export default function LedgerPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -56,6 +60,16 @@ export default function LedgerPage() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
 
+  // Inline editing (Excel-like)
+  const [editingCell, setEditingCell] = useState<{ rowId: string; field: EditableField } | null>(null);
+  const [editValue, setEditValue] = useState('');
+  const [inlineSaving, setInlineSaving] = useState(false);
+  const editInputRef = useRef<HTMLInputElement>(null);
+
+  // Double-click prevention
+  const submitLockRef = useRef(false);
+  const deleteLockRef = useRef(false);
+
   const loadTransactions = useCallback(async () => {
     setLoading(true);
     try {
@@ -83,8 +97,17 @@ export default function LedgerPage() {
     loadTransactions();
   }, [loadTransactions]);
 
+  // Focus input when editing cell changes
+  useEffect(() => {
+    if (editingCell && editInputRef.current) {
+      editInputRef.current.focus();
+      editInputRef.current.select();
+    }
+  }, [editingCell]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submitLockRef.current) return;
     setFormError('');
 
     const amount = parseFloat(formData.amount);
@@ -97,6 +120,7 @@ export default function LedgerPage() {
       return;
     }
 
+    submitLockRef.current = true;
     setSaving(true);
     try {
       const payload = {
@@ -128,6 +152,7 @@ export default function LedgerPage() {
       toast.error(msg);
     } finally {
       setSaving(false);
+      submitLockRef.current = false;
     }
   };
 
@@ -145,6 +170,8 @@ export default function LedgerPage() {
   };
 
   const handleDelete = async (id: string) => {
+    if (deleteLockRef.current) return;
+    deleteLockRef.current = true;
     setDeleting(true);
     try {
       await transactionAPI.delete(id);
@@ -155,6 +182,7 @@ export default function LedgerPage() {
       toast.error('Failed to delete transaction');
     } finally {
       setDeleting(false);
+      deleteLockRef.current = false;
     }
   };
 
@@ -169,6 +197,113 @@ export default function LedgerPage() {
     });
     setFormError('');
     setEditId(null);
+  };
+
+  // Inline editing handlers
+  const startEditing = (tx: Transaction, field: EditableField) => {
+    if (inlineSaving) return;
+    const val = field === 'debit' || field === 'credit' || field === 'sr'
+      ? (tx[field] > 0 ? tx[field].toString() : '')
+      : (tx[field] || '');
+    setEditingCell({ rowId: tx.id, field });
+    setEditValue(val.toString());
+  };
+
+  const saveInlineEdit = async () => {
+    if (!editingCell || inlineSaving) return;
+    const tx = transactions.find(t => t.id === editingCell.rowId);
+    if (!tx) { setEditingCell(null); return; }
+
+    const { field } = editingCell;
+    const oldVal = field === 'debit' || field === 'credit' || field === 'sr'
+      ? (tx[field] > 0 ? tx[field].toString() : '')
+      : (tx[field] || '');
+
+    if (editValue.trim() === oldVal.toString()) {
+      setEditingCell(null);
+      return;
+    }
+
+    setInlineSaving(true);
+    try {
+      const payload: Record<string, any> = {};
+      if (field === 'debit' || field === 'credit' || field === 'sr') {
+        const numVal = parseFloat(editValue) || 0;
+        if (numVal < 0) { toast.error('Negative values not allowed'); setInlineSaving(false); return; }
+        payload[field] = numVal;
+      } else {
+        payload[field] = editValue.trim();
+      }
+
+      await transactionAPI.update(tx.id, payload);
+      setEditingCell(null);
+      await loadTransactions();
+    } catch (err) {
+      toast.error('Failed to save');
+    } finally {
+      setInlineSaving(false);
+    }
+  };
+
+  const handleInlineKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      setEditingCell(null);
+      return;
+    }
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      saveInlineEdit();
+      return;
+    }
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      const currentTx = transactions.find(t => t.id === editingCell?.rowId);
+      if (!currentTx || !editingCell) return;
+
+      // Save current cell first
+      saveInlineEdit();
+
+      const currentIdx = FIELD_ORDER.indexOf(editingCell.field);
+      const txIdx = transactions.indexOf(currentTx);
+
+      if (e.shiftKey) {
+        // Shift+Tab: move to previous field or previous row's last field
+        if (currentIdx > 0) {
+          startEditing(currentTx, FIELD_ORDER[currentIdx - 1]);
+        } else if (txIdx > 0) {
+          startEditing(transactions[txIdx - 1], FIELD_ORDER[FIELD_ORDER.length - 1]);
+        }
+      } else {
+        // Tab: move to next field or next row's first field
+        if (currentIdx < FIELD_ORDER.length - 1) {
+          startEditing(currentTx, FIELD_ORDER[currentIdx + 1]);
+        } else if (txIdx < transactions.length - 1) {
+          startEditing(transactions[txIdx + 1], FIELD_ORDER[0]);
+        }
+      }
+    }
+  };
+
+  const renderCell = (tx: Transaction, field: EditableField) => {
+    const isEditing = editingCell?.rowId === tx.id && editingCell?.field === field;
+
+    if (isEditing) {
+      return (
+        <input
+          ref={editInputRef}
+          className="ledger__inline-input"
+          type={field === 'date' ? 'date' : field === 'debit' || field === 'credit' || field === 'sr' ? 'number' : 'text'}
+          value={editValue}
+          onChange={(e) => setEditValue(e.target.value)}
+          onBlur={saveInlineEdit}
+          onKeyDown={handleInlineKeyDown}
+          min={field === 'debit' || field === 'credit' || field === 'sr' ? '0' : undefined}
+          step={field === 'debit' || field === 'credit' || field === 'sr' ? '0.01' : undefined}
+        />
+      );
+    }
+
+    return null;
   };
 
   // Group transactions by date for bahi-khata style
@@ -187,6 +322,9 @@ export default function LedgerPage() {
           <h1 className="main__title"><IconLedger size={22} /> Ledger</h1>
           <p className="main__subtitle">
             {total} transaction{total !== 1 ? 's' : ''} recorded
+            <span style={{ marginLeft: '8px', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+              (Click any cell to edit inline)
+            </span>
           </p>
         </div>
       </div>
@@ -302,21 +440,71 @@ export default function LedgerPage() {
                     </td>
                   </tr>
                   {txs.map((tx) => (
-                    <tr key={tx.id}>
-                      <td>{formatDate(tx.date)}</td>
-                      <td style={{ fontStyle: tx.partyName ? 'normal' : 'italic', color: tx.partyName ? 'inherit' : '#8B7D5E' }}>
-                        {tx.partyName || '—'}
+                    <tr key={tx.id} className={editingCell?.rowId === tx.id ? 'ledger__row--editing' : ''}>
+                      <td
+                        className={`ledger__cell--editable ${editingCell?.rowId === tx.id && editingCell?.field === 'date' ? 'ledger__cell--active' : ''}`}
+                        onClick={() => startEditing(tx, 'date')}
+                      >
+                        {editingCell?.rowId === tx.id && editingCell?.field === 'date'
+                          ? renderCell(tx, 'date')
+                          : formatDate(tx.date)
+                        }
                       </td>
-                      <td style={{ fontWeight: 600 }}>{tx.billNo}</td>
-                      <td>{tx.folio || '—'}</td>
-                      <td className="ledger__amount ledger__amount--debit">
-                        {tx.debit > 0 ? formatCurrency(tx.debit) : ''}
+                      <td
+                        className={`ledger__cell--editable ${editingCell?.rowId === tx.id && editingCell?.field === 'partyName' ? 'ledger__cell--active' : ''}`}
+                        onClick={() => startEditing(tx, 'partyName')}
+                        style={{ fontStyle: tx.partyName ? 'normal' : 'italic', color: tx.partyName ? '#1A150D' : '#8B7D5E' }}
+                      >
+                        {editingCell?.rowId === tx.id && editingCell?.field === 'partyName'
+                          ? renderCell(tx, 'partyName')
+                          : (tx.partyName || '\u2014')
+                        }
                       </td>
-                      <td className="ledger__amount ledger__amount--credit">
-                        {tx.credit > 0 ? formatCurrency(tx.credit) : ''}
+                      <td
+                        className={`ledger__cell--editable ${editingCell?.rowId === tx.id && editingCell?.field === 'billNo' ? 'ledger__cell--active' : ''}`}
+                        onClick={() => startEditing(tx, 'billNo')}
+                        style={{ fontWeight: 600 }}
+                      >
+                        {editingCell?.rowId === tx.id && editingCell?.field === 'billNo'
+                          ? renderCell(tx, 'billNo')
+                          : tx.billNo
+                        }
                       </td>
-                      <td className="ledger__amount ledger__amount--sr">
-                        {tx.sr > 0 ? formatCurrency(tx.sr) : ''}
+                      <td
+                        className={`ledger__cell--editable ${editingCell?.rowId === tx.id && editingCell?.field === 'folio' ? 'ledger__cell--active' : ''}`}
+                        onClick={() => startEditing(tx, 'folio')}
+                      >
+                        {editingCell?.rowId === tx.id && editingCell?.field === 'folio'
+                          ? renderCell(tx, 'folio')
+                          : (tx.folio || '\u2014')
+                        }
+                      </td>
+                      <td
+                        className={`ledger__amount ledger__amount--debit ledger__cell--editable ${editingCell?.rowId === tx.id && editingCell?.field === 'debit' ? 'ledger__cell--active' : ''}`}
+                        onClick={() => startEditing(tx, 'debit')}
+                      >
+                        {editingCell?.rowId === tx.id && editingCell?.field === 'debit'
+                          ? renderCell(tx, 'debit')
+                          : (tx.debit > 0 ? formatCurrency(tx.debit) : '')
+                        }
+                      </td>
+                      <td
+                        className={`ledger__amount ledger__amount--credit ledger__cell--editable ${editingCell?.rowId === tx.id && editingCell?.field === 'credit' ? 'ledger__cell--active' : ''}`}
+                        onClick={() => startEditing(tx, 'credit')}
+                      >
+                        {editingCell?.rowId === tx.id && editingCell?.field === 'credit'
+                          ? renderCell(tx, 'credit')
+                          : (tx.credit > 0 ? formatCurrency(tx.credit) : '')
+                        }
+                      </td>
+                      <td
+                        className={`ledger__amount ledger__amount--sr ledger__cell--editable ${editingCell?.rowId === tx.id && editingCell?.field === 'sr' ? 'ledger__cell--active' : ''}`}
+                        onClick={() => startEditing(tx, 'sr')}
+                      >
+                        {editingCell?.rowId === tx.id && editingCell?.field === 'sr'
+                          ? renderCell(tx, 'sr')
+                          : (tx.sr > 0 ? formatCurrency(tx.sr) : '')
+                        }
                       </td>
                       <td>
                         <span className={`ledger__type ledger__type--${tx.type}`}>
@@ -331,7 +519,7 @@ export default function LedgerPage() {
                           <button
                             className="ledger__action-btn ledger__action-btn--edit"
                             onClick={() => handleEdit(tx)}
-                            title="Edit"
+                            title="Full Edit"
                           >
                             <IconEdit size={14} />
                           </button>

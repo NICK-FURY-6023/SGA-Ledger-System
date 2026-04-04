@@ -117,3 +117,9 @@ export const partyAPI = {
 export const healthAPI = {
   check: () => apiRequest('/api/health'),
 };
+
+// Backup (developer only)
+export const backupAPI = {
+  full: () => apiRequest('/api/backup'),
+  party: (partyId: string) => apiRequest(`/api/backup/party/${partyId}`),
+};
