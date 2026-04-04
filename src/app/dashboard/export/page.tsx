@@ -21,9 +21,10 @@ export default function ExportPage() {
     setExporting(true);
     try {
       const transactions = await fetchTransactions();
-      const headers = ['Date', 'Bill/Challan No', 'Folio', 'Debit', 'Credit', 'SR', 'Type', 'Balance'];
+      const headers = ['Date', 'Party/Customer', 'Bill/Challan No', 'Folio', 'Debit', 'Credit', 'SR', 'Type', 'Balance'];
       const rows = transactions.map((t: any) => [
         formatDate(t.date),
+        t.partyName || '',
         t.billNo,
         t.folio || '',
         t.debit || '',
@@ -49,9 +50,9 @@ export default function ExportPage() {
       const transactions = await fetchTransactions();
 
       const wsData = [
-        ['Date', 'Bill/Challan No', 'Folio', 'Debit', 'Credit', 'SR', 'Type', 'Balance'],
+        ['Date', 'Party/Customer', 'Bill/Challan No', 'Folio', 'Debit', 'Credit', 'SR', 'Type', 'Balance'],
         ...transactions.map((t: any) => [
-          formatDate(t.date), t.billNo, t.folio || '', t.debit, t.credit, t.sr, t.type, t.balance,
+          formatDate(t.date), t.partyName || '', t.billNo, t.folio || '', t.debit, t.credit, t.sr, t.type, t.balance,
         ]),
       ];
 
@@ -85,9 +86,10 @@ export default function ExportPage() {
 
       autoTable(doc, {
         startY: dateFrom || dateTo ? 40 : 34,
-        head: [['Date', 'Bill No', 'Folio', 'Debit', 'Credit', 'SR', 'Type', 'Balance']],
+        head: [['Date', 'Party', 'Bill No', 'Folio', 'Debit', 'Credit', 'SR', 'Type', 'Balance']],
         body: transactions.map((t: any) => [
           formatDate(t.date),
+          t.partyName || '—',
           t.billNo,
           t.folio || '—',
           t.debit > 0 ? formatCurrency(t.debit) : '',
@@ -121,6 +123,7 @@ export default function ExportPage() {
     const rows = transactions.map((t: any) => `
       <tr>
         <td>${formatDate(t.date)}</td>
+        <td>${t.partyName || '—'}</td>
         <td style="font-weight:600">${t.billNo}</td>
         <td>${t.folio || '—'}</td>
         <td style="text-align:right;color:#C62828">${t.debit > 0 ? formatCurrency(t.debit) : ''}</td>
@@ -144,7 +147,7 @@ export default function ExportPage() {
       </style></head><body>
       <h1>SGA Ledger System</h1>
       <p>Generated: ${new Date().toLocaleString('en-IN')}</p>
-      <table><thead><tr><th>Date</th><th>Bill No</th><th>Folio</th><th>Debit</th><th>Credit</th><th>SR</th><th>Type</th><th>Balance</th></tr></thead>
+      <table><thead><tr><th>Date</th><th>Party</th><th>Bill No</th><th>Folio</th><th>Debit</th><th>Credit</th><th>SR</th><th>Type</th><th>Balance</th></tr></thead>
       <tbody>${rows}</tbody></table>
       <script>window.print();window.close();</script>
       </body></html>

@@ -24,6 +24,7 @@ export interface Session {
 export interface Transaction {
   id: string;
   date: string;
+  partyName: string;
   billNo: string;
   folio: string;
   debit: number;

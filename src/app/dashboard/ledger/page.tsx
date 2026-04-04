@@ -3,10 +3,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import { transactionAPI } from '@/lib/api';
 import { formatCurrency, formatDate, getTodayISO } from '@/lib/utils';
+import toast from 'react-hot-toast';
 
 interface Transaction {
   id: string;
   date: string;
+  partyName: string;
   billNo: string;
   folio: string;
   debit: number;
@@ -36,6 +38,7 @@ export default function LedgerPage() {
   const [editId, setEditId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     date: getTodayISO(),
+    partyName: '',
     billNo: '',
     folio: '',
     amount: '',
@@ -46,6 +49,7 @@ export default function LedgerPage() {
 
   // Delete confirmation
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const loadTransactions = useCallback(async () => {
     setLoading(true);
@@ -64,7 +68,7 @@ export default function LedgerPage() {
       setTotal(data.total || 0);
       setTotalPages(data.totalPages || 1);
     } catch (err) {
-      console.error('Failed to load transactions:', err);
+      toast.error('Failed to load transactions');
     } finally {
       setLoading(false);
     }
@@ -92,6 +96,7 @@ export default function LedgerPage() {
     try {
       const payload = {
         date: formData.date,
+        partyName: formData.partyName.trim(),
         billNo: formData.billNo.trim(),
         folio: formData.folio.trim(),
         debit: formData.type === 'DIR' ? amount : 0,
@@ -102,8 +107,10 @@ export default function LedgerPage() {
 
       if (editId) {
         await transactionAPI.update(editId, payload);
+        toast.success('Transaction updated successfully');
       } else {
         await transactionAPI.create(payload);
+        toast.success('Transaction added successfully');
       }
 
       setShowForm(false);
@@ -111,7 +118,9 @@ export default function LedgerPage() {
       resetForm();
       await loadTransactions();
     } catch (err: any) {
-      setFormError(err.message || 'Failed to save transaction');
+      const msg = err.message || 'Failed to save transaction';
+      setFormError(msg);
+      toast.error(msg);
     } finally {
       setSaving(false);
     }
@@ -121,6 +130,7 @@ export default function LedgerPage() {
     setEditId(tx.id);
     setFormData({
       date: tx.date,
+      partyName: tx.partyName || '',
       billNo: tx.billNo,
       folio: tx.folio,
       amount: (tx.debit || tx.credit || tx.sr).toString(),
@@ -130,18 +140,23 @@ export default function LedgerPage() {
   };
 
   const handleDelete = async (id: string) => {
+    setDeleting(true);
     try {
       await transactionAPI.delete(id);
       setDeleteId(null);
+      toast.success('Transaction deleted');
       await loadTransactions();
     } catch (err) {
-      console.error('Failed to delete:', err);
+      toast.error('Failed to delete transaction');
+    } finally {
+      setDeleting(false);
     }
   };
 
   const resetForm = () => {
     setFormData({
       date: getTodayISO(),
+      partyName: '',
       billNo: '',
       folio: '',
       amount: '',
@@ -150,6 +165,15 @@ export default function LedgerPage() {
     setFormError('');
     setEditId(null);
   };
+
+  // Group transactions by date for bahi-khata style
+  const groupedByDate = transactions.reduce<Record<string, Transaction[]>>((groups, tx) => {
+    const key = tx.date;
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(tx);
+    return groups;
+  }, {});
+  const dateGroups = Object.entries(groupedByDate);
 
   return (
     <div className="ledger">
@@ -228,12 +252,13 @@ export default function LedgerPage() {
         </div>
       )}
 
-      {/* Register-style table */}
+      {/* Register-style table with date grouping */}
       <div className="ledger__table-wrap">
         <table className="ledger__table">
           <thead>
             <tr>
               <th>Date</th>
+              <th>Party / Customer</th>
               <th>Bill / Challan No</th>
               <th>P. / Folio</th>
               <th>Debit</th>
@@ -247,13 +272,14 @@ export default function LedgerPage() {
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={9} style={{ textAlign: 'center', padding: '3rem', color: '#8B7D5E' }}>
+                <td colSpan={10} style={{ textAlign: 'center', padding: '3rem', color: '#8B7D5E' }}>
+                  <div className="ledger__spinner" />
                   Loading...
                 </td>
               </tr>
             ) : transactions.length === 0 ? (
               <tr>
-                <td colSpan={9}>
+                <td colSpan={10}>
                   <div className="ledger__empty">
                     <div className="ledger__empty-icon">📖</div>
                     <div className="ledger__empty-text">
@@ -263,47 +289,59 @@ export default function LedgerPage() {
                 </td>
               </tr>
             ) : (
-              transactions.map((tx) => (
-                <tr key={tx.id}>
-                  <td>{formatDate(tx.date)}</td>
-                  <td style={{ fontWeight: 600 }}>{tx.billNo}</td>
-                  <td>{tx.folio || '—'}</td>
-                  <td className="ledger__amount ledger__amount--debit">
-                    {tx.debit > 0 ? formatCurrency(tx.debit) : ''}
-                  </td>
-                  <td className="ledger__amount ledger__amount--credit">
-                    {tx.credit > 0 ? formatCurrency(tx.credit) : ''}
-                  </td>
-                  <td className="ledger__amount ledger__amount--sr">
-                    {tx.sr > 0 ? formatCurrency(tx.sr) : ''}
-                  </td>
-                  <td>
-                    <span className={`ledger__type ledger__type--${tx.type}`}>
-                      {tx.type}
-                    </span>
-                  </td>
-                  <td className={`ledger__balance ${tx.balance < 0 ? 'ledger__balance--negative' : ''}`}>
-                    {formatCurrency(tx.balance)}
-                  </td>
-                  <td>
-                    <div className="ledger__actions">
-                      <button
-                        className="ledger__action-btn ledger__action-btn--edit"
-                        onClick={() => handleEdit(tx)}
-                        title="Edit"
-                      >
-                        ✏️
-                      </button>
-                      <button
-                        className="ledger__action-btn ledger__action-btn--delete"
-                        onClick={() => setDeleteId(tx.id)}
-                        title="Delete"
-                      >
-                        🗑️
-                      </button>
-                    </div>
-                  </td>
-                </tr>
+              dateGroups.map(([date, txs]) => (
+                <>
+                  <tr key={`date-${date}`} className="ledger__date-header">
+                    <td colSpan={10}>
+                      📅 {formatDate(date)}
+                    </td>
+                  </tr>
+                  {txs.map((tx) => (
+                    <tr key={tx.id}>
+                      <td>{formatDate(tx.date)}</td>
+                      <td style={{ fontStyle: tx.partyName ? 'normal' : 'italic', color: tx.partyName ? 'inherit' : '#8B7D5E' }}>
+                        {tx.partyName || '—'}
+                      </td>
+                      <td style={{ fontWeight: 600 }}>{tx.billNo}</td>
+                      <td>{tx.folio || '—'}</td>
+                      <td className="ledger__amount ledger__amount--debit">
+                        {tx.debit > 0 ? formatCurrency(tx.debit) : ''}
+                      </td>
+                      <td className="ledger__amount ledger__amount--credit">
+                        {tx.credit > 0 ? formatCurrency(tx.credit) : ''}
+                      </td>
+                      <td className="ledger__amount ledger__amount--sr">
+                        {tx.sr > 0 ? formatCurrency(tx.sr) : ''}
+                      </td>
+                      <td>
+                        <span className={`ledger__type ledger__type--${tx.type}`}>
+                          {tx.type}
+                        </span>
+                      </td>
+                      <td className={`ledger__balance ${tx.balance < 0 ? 'ledger__balance--negative' : ''}`}>
+                        {formatCurrency(tx.balance)}
+                      </td>
+                      <td>
+                        <div className="ledger__actions">
+                          <button
+                            className="ledger__action-btn ledger__action-btn--edit"
+                            onClick={() => handleEdit(tx)}
+                            title="Edit"
+                          >
+                            ✏️
+                          </button>
+                          <button
+                            className="ledger__action-btn ledger__action-btn--delete"
+                            onClick={() => setDeleteId(tx.id)}
+                            title="Delete"
+                          >
+                            🗑️
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </>
               ))
             )}
           </tbody>
@@ -381,6 +419,15 @@ export default function LedgerPage() {
                 />
               </div>
               <div className="entry-form__field">
+                <label className="entry-form__label">Party / Customer Name</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Sharma Traders"
+                  value={formData.partyName}
+                  onChange={(e) => setFormData({ ...formData, partyName: e.target.value })}
+                />
+              </div>
+              <div className="entry-form__field">
                 <label className="entry-form__label">Bill / Challan No *</label>
                 <input
                   type="text"
@@ -419,7 +466,9 @@ export default function LedgerPage() {
                 className="entry-form__submit"
                 disabled={saving}
               >
-                {saving ? 'Saving...' : editId ? 'Update Transaction' : 'Add Transaction'}
+                {saving ? (
+                  <><span className="ledger__spinner ledger__spinner--sm" /> Saving...</>
+                ) : editId ? 'Update Transaction' : 'Add Transaction'}
               </button>
             </div>
           </form>
@@ -452,8 +501,9 @@ export default function LedgerPage() {
                   borderRadius: 'var(--radius-sm)', fontWeight: 600, fontSize: '0.85rem',
                 }}
                 onClick={() => handleDelete(deleteId)}
+                disabled={deleting}
               >
-                Delete
+                {deleting ? 'Deleting...' : 'Delete'}
               </button>
             </div>
           </div>

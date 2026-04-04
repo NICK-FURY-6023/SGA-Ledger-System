@@ -13,6 +13,9 @@ export default function DashboardPage() {
     totalCredit: 0,
     currentBalance: 0,
     todayEntries: 0,
+    todayDebit: 0,
+    todayCredit: 0,
+    todaySR: 0,
     recentActivity: [] as any[],
   });
 
@@ -23,7 +26,7 @@ export default function DashboardPage() {
   const loadStats = async () => {
     try {
       const [txRes, auditRes] = await Promise.all([
-        transactionAPI.getAll({ limit: '1000' }),
+        transactionAPI.getAll({ limit: '10000' }),
         auditAPI.getAll({ limit: '5' }),
       ]);
 
@@ -35,14 +38,21 @@ export default function DashboardPage() {
       const lastBalance = transactions.length > 0
         ? transactions[transactions.length - 1].balance
         : 0;
-      const todayEntries = transactions.filter((t: any) => t.date === today).length;
+
+      const todayTxs = transactions.filter((t: any) => t.date === today);
+      const todayDebit = todayTxs.reduce((s: number, t: any) => s + (t.debit || 0), 0);
+      const todayCredit = todayTxs.reduce((s: number, t: any) => s + (t.credit || 0), 0);
+      const todaySR = todayTxs.reduce((s: number, t: any) => s + (t.sr || 0), 0);
 
       setStats({
         totalTransactions: transactions.length,
         totalDebit,
         totalCredit,
         currentBalance: lastBalance,
-        todayEntries,
+        todayEntries: todayTxs.length,
+        todayDebit,
+        todayCredit,
+        todaySR,
         recentActivity: auditRes.logs || [],
       });
     } catch (err) {
@@ -84,16 +94,43 @@ export default function DashboardPage() {
             {formatCurrency(stats.currentBalance)}
           </div>
         </div>
-        <div className="stat-card">
-          <div className="stat-card__label">Today&apos;s Entries</div>
-          <div className="stat-card__value stat-card__value--orange">
-            {stats.todayEntries}
+      </div>
+
+      {/* Today's Summary */}
+      <div style={{ marginTop: '1.5rem' }}>
+        <h3 style={{ fontSize: '1rem', color: 'var(--text-secondary)', marginBottom: '1rem' }}>
+          📅 Today&apos;s Summary
+        </h3>
+        <div className="stats">
+          <div className="stat-card">
+            <div className="stat-card__label">Today&apos;s Entries</div>
+            <div className="stat-card__value stat-card__value--orange">
+              {stats.todayEntries}
+            </div>
+          </div>
+          <div className="stat-card">
+            <div className="stat-card__label">Today&apos;s Debit</div>
+            <div className="stat-card__value stat-card__value--red">
+              {formatCurrency(stats.todayDebit)}
+            </div>
+          </div>
+          <div className="stat-card">
+            <div className="stat-card__label">Today&apos;s Credit</div>
+            <div className="stat-card__value stat-card__value--green">
+              {formatCurrency(stats.todayCredit)}
+            </div>
+          </div>
+          <div className="stat-card">
+            <div className="stat-card__label">Today&apos;s SR</div>
+            <div className="stat-card__value stat-card__value--blue">
+              {formatCurrency(stats.todaySR)}
+            </div>
           </div>
         </div>
       </div>
 
       {stats.recentActivity.length > 0 && (
-        <div style={{ marginTop: '1rem' }}>
+        <div style={{ marginTop: '1.5rem' }}>
           <h3 style={{ fontSize: '1rem', color: 'var(--text-secondary)', marginBottom: '1rem' }}>
             Recent Activity
           </h3>

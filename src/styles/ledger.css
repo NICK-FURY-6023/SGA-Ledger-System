@@ -449,3 +449,42 @@
     align-items: stretch;
   }
 }
+
+/* Date group header - bahi-khata style */
+.ledger__date-header td {
+  background: linear-gradient(135deg, #2C2416, #3D3223) !important;
+  color: #D4C89A !important;
+  font-family: 'Georgia', serif;
+  font-weight: 700;
+  font-size: 0.85rem;
+  letter-spacing: 1px;
+  padding: 8px 14px !important;
+  border-bottom: 2px solid #5C4F3A !important;
+}
+
+/* Loading spinner */
+.ledger__spinner {
+  display: inline-block;
+  width: 24px;
+  height: 24px;
+  border: 3px solid #D4C89A;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  margin-bottom: 0.5rem;
+}
+
+.ledger__spinner--sm {
+  width: 14px;
+  height: 14px;
+  border-width: 2px;
+  border-color: white;
+  border-top-color: transparent;
+  vertical-align: middle;
+  margin-right: 6px;
+  margin-bottom: 0;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}

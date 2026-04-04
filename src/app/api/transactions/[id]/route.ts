@@ -31,7 +31,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
       return NextResponse.json({ error: 'Transaction not found' }, { status: 404 });
     }
 
-    const { date, billNo, folio, debit, credit, sr, type } = await req.json();
+    const { date, billNo, folio, debit, credit, sr, type, partyName } = await req.json();
 
     if (type && !['CIR', 'DIR', 'SR'].includes(type)) {
       return NextResponse.json({ error: 'Type must be CIR, DIR, or SR' }, { status: 400 });
@@ -54,6 +54,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     store.transactions[index] = {
       ...existing,
       date: date || existing.date,
+      partyName: partyName !== undefined ? partyName?.trim() : existing.partyName,
       billNo: billNo?.trim() || existing.billNo,
       folio: folio !== undefined ? folio : existing.folio,
       debit: debitVal,

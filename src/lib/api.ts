@@ -48,6 +48,8 @@ export const authAPI = {
     apiRequest('/api/auth/logout', { method: 'POST' }),
   me: () =>
     apiRequest('/api/auth/me'),
+  changePassword: (currentPassword: string, newPassword: string) =>
+    apiRequest('/api/auth/change-password', { method: 'POST', body: { currentPassword, newPassword } }),
 };
 
 // Transaction APIs

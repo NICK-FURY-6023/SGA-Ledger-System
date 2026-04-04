@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { settingsAPI } from '@/lib/api';
+import { settingsAPI, authAPI } from '@/lib/api';
+import toast from 'react-hot-toast';
 
 export default function SettingsPage() {
   const [settings, setSettings] = useState({
@@ -12,7 +13,12 @@ export default function SettingsPage() {
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
+
+  // Password change
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [changingPassword, setChangingPassword] = useState(false);
 
   useEffect(() => {
     loadSettings();
@@ -23,7 +29,7 @@ export default function SettingsPage() {
       const data = await settingsAPI.get();
       setSettings(data);
     } catch (err) {
-      console.error('Failed to load settings:', err);
+      toast.error('Failed to load settings');
     } finally {
       setLoading(false);
     }
@@ -31,15 +37,41 @@ export default function SettingsPage() {
 
   const handleSave = async () => {
     setSaving(true);
-    setSaved(false);
     try {
       await settingsAPI.update(settings);
-      setSaved(true);
-      setTimeout(() => setSaved(false), 3000);
+      toast.success('Settings saved!');
     } catch (err) {
-      alert('Failed to save settings');
+      toast.error('Failed to save settings');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handlePasswordChange = async () => {
+    if (!currentPassword || !newPassword) {
+      toast.error('Please fill in all password fields');
+      return;
+    }
+    if (newPassword.length < 6) {
+      toast.error('New password must be at least 6 characters');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      toast.error('New passwords do not match');
+      return;
+    }
+
+    setChangingPassword(true);
+    try {
+      await authAPI.changePassword(currentPassword, newPassword);
+      toast.success('Password changed successfully!');
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to change password');
+    } finally {
+      setChangingPassword(false);
     }
   };
 
@@ -104,30 +136,63 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      <div className="settings__section">
-        <h3 className="settings__section-title">System Information</h3>
-        <div className="settings__field">
-          <label className="settings__label">Version</label>
-          <input type="text" value="1.0.0" disabled style={{ opacity: 0.5 }} />
-        </div>
-        <div className="settings__field">
-          <label className="settings__label">Default Admin Credentials</label>
-          <input
-            type="text"
-            value="Username: admin / Password: admin123"
-            disabled
-            style={{ opacity: 0.5, fontFamily: 'var(--font-mono)', fontSize: '0.85rem' }}
-          />
-        </div>
-      </div>
-
       <button
         className="settings__save"
         onClick={handleSave}
         disabled={saving}
       >
-        {saving ? 'Saving...' : saved ? '✓ Saved!' : 'Save Settings'}
+        {saving ? 'Saving...' : 'Save Settings'}
       </button>
+
+      <div className="settings__section" style={{ marginTop: '2rem' }}>
+        <h3 className="settings__section-title">🔐 Change Password</h3>
+        <div className="settings__field">
+          <label className="settings__label">Current Password</label>
+          <input
+            type="password"
+            value={currentPassword}
+            onChange={(e) => setCurrentPassword(e.target.value)}
+            placeholder="Enter current password"
+            autoComplete="current-password"
+          />
+        </div>
+        <div className="settings__field">
+          <label className="settings__label">New Password</label>
+          <input
+            type="password"
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
+            placeholder="At least 6 characters"
+            autoComplete="new-password"
+          />
+        </div>
+        <div className="settings__field">
+          <label className="settings__label">Confirm New Password</label>
+          <input
+            type="password"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            placeholder="Re-enter new password"
+            autoComplete="new-password"
+          />
+        </div>
+        <button
+          className="settings__save"
+          onClick={handlePasswordChange}
+          disabled={changingPassword}
+          style={{ background: 'var(--accent-orange)' }}
+        >
+          {changingPassword ? 'Changing...' : 'Change Password'}
+        </button>
+      </div>
+
+      <div className="settings__section" style={{ marginTop: '2rem' }}>
+        <h3 className="settings__section-title">System Information</h3>
+        <div className="settings__field">
+          <label className="settings__label">Version</label>
+          <input type="text" value="1.0.0" disabled style={{ opacity: 0.5 }} />
+        </div>
+      </div>
     </div>
   );
 }

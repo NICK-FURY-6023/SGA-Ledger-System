@@ -26,6 +26,7 @@ export async function GET(req: NextRequest) {
   const store = getStore();
   const url = new URL(req.url);
   const billNo = url.searchParams.get('billNo');
+  const partyName = url.searchParams.get('partyName');
   const type = url.searchParams.get('type');
   const dateFrom = url.searchParams.get('dateFrom');
   const dateTo = url.searchParams.get('dateTo');
@@ -36,6 +37,7 @@ export async function GET(req: NextRequest) {
   let transactions = [...store.transactions];
 
   if (billNo) transactions = transactions.filter(t => t.billNo.toLowerCase().includes(billNo.toLowerCase()));
+  if (partyName) transactions = transactions.filter(t => t.partyName?.toLowerCase().includes(partyName.toLowerCase()));
   if (type) transactions = transactions.filter(t => t.type === type);
   if (dateFrom) transactions = transactions.filter(t => new Date(t.date) >= new Date(dateFrom));
   if (dateTo) transactions = transactions.filter(t => new Date(t.date) <= new Date(dateTo));
@@ -54,7 +56,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const store = getStore();
-    const { date, billNo, folio, debit, credit, sr, type } = await req.json();
+    const { date, billNo, folio, debit, credit, sr, type, partyName } = await req.json();
 
     if (!date || !billNo || !type) {
       return NextResponse.json({ error: 'Date, bill number, and type are required' }, { status: 400 });
@@ -79,6 +81,7 @@ export async function POST(req: NextRequest) {
     const transaction = {
       id: uuidv4(),
       date,
+      partyName: partyName?.trim() || '',
       billNo: billNo.trim(),
       folio: folio || '',
       debit: debitVal,
