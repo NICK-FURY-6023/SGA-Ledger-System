@@ -35,7 +35,7 @@ export default function ExportPage() {
       ]);
 
       const csv = [headers, ...rows].map((r: any[]) => r.join(',')).join('\n');
-      downloadFile(csv, 'SGA_Ledger.csv', 'text/csv');
+      downloadFile(csv, 'SGALA_Ledger.csv', 'text/csv');
     } catch (err) {
       alert('Export failed');
     } finally {
@@ -59,7 +59,7 @@ export default function ExportPage() {
       const ws = XLSX.utils.aoa_to_sheet(wsData);
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, 'Ledger');
-      XLSX.writeFile(wb, 'SGA_Ledger.xlsx');
+      XLSX.writeFile(wb, 'SGALA_Ledger.xlsx');
     } catch (err) {
       alert('Export failed');
     } finally {
@@ -76,7 +76,7 @@ export default function ExportPage() {
 
       const doc = new jsPDF('landscape');
       doc.setFontSize(18);
-      doc.text('SGA Ledger System', 14, 20);
+      doc.text('SGALA — Shree Ganpati Agency Ledger', 14, 20);
       doc.setFontSize(10);
       doc.setTextColor(100);
       doc.text(`Generated: ${new Date().toLocaleString('en-IN')}`, 14, 28);
@@ -107,7 +107,7 @@ export default function ExportPage() {
         styles: { fontSize: 9, cellPadding: 3 },
       });
 
-      doc.save('SGA_Ledger.pdf');
+      doc.save('SGALA_Ledger.pdf');
     } catch (err) {
       alert('Export failed');
     } finally {
@@ -135,7 +135,7 @@ export default function ExportPage() {
     `).join('');
 
     printWindow.document.write(`
-      <!DOCTYPE html><html><head><title>SGA Ledger</title>
+      <!DOCTYPE html><html><head><title>SGALA Ledger</title>
       <style>
         body { font-family: Georgia, serif; margin: 2rem; }
         h1 { text-align: center; margin-bottom: 0.5rem; }
@@ -145,7 +145,7 @@ export default function ExportPage() {
         td { padding: 8px 10px; border-bottom: 1px solid #E8DFC8; font-size: 13px; }
         tr:nth-child(even) { background: #FBF8EE; }
       </style></head><body>
-      <h1>SGA Ledger System</h1>
+      <h1>SGALA — Shree Ganpati Agency Ledger</h1>
       <p>Generated: ${new Date().toLocaleString('en-IN')}</p>
       <table><thead><tr><th>Date</th><th>Party</th><th>Bill No</th><th>Folio</th><th>Debit</th><th>Credit</th><th>SR</th><th>Type</th><th>Balance</th></tr></thead>
       <tbody>${rows}</tbody></table>

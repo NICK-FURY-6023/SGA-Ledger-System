@@ -38,10 +38,13 @@
 }
 
 .login__logo {
-  width: 120px;
-  height: auto;
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  object-fit: cover;
   margin-bottom: 1rem;
-  filter: drop-shadow(0 0 20px rgba(0, 102, 255, 0.2));
+  border: 2px solid rgba(0, 102, 255, 0.25);
+  box-shadow: 0 0 20px rgba(0, 102, 255, 0.2);
 }
 
 .login__heading {

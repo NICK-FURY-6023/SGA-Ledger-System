@@ -42,9 +42,9 @@ export default function LoginPage() {
       <div className="login__bg" />
       <div className="login__card">
         <div className="login__logo-wrap">
-          <img src="/SGA.png" alt="SGA" className="login__logo" />
+          <img src="/SGA.png" alt="SGALA" className="login__logo" />
           <h1 className="login__heading">Welcome Back</h1>
-          <p className="login__sub">Sign in to access your ledger</p>
+          <p className="login__sub">Sign in to SGALA — Shree Ganpati Agency Ledger</p>
         </div>
 
         <form className="login__form" onSubmit={handleSubmit}>

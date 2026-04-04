@@ -76,7 +76,7 @@ function createStore(): Store {
     transactions: [],
     audit_logs: [],
     settings: {
-      shopName: 'SGA Hardware & Bath Fittings',
+      shopName: 'Shree Ganpati Agency',
       currency: 'INR',
       dateFormat: 'DD/MM/YYYY',
       sortOrder: 'newest',

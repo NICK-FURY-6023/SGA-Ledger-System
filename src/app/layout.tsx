@@ -9,8 +9,34 @@ import { AuthProvider } from '@/lib/auth';
 import { Toaster } from 'react-hot-toast';
 
 export const metadata: Metadata = {
-  title: 'SGA Ledger System',
-  description: 'A secure, realtime, admin-only digital bahi-khata system',
+  metadataBase: new URL(process.env.NEXT_PUBLIC_URL || 'https://sgala.vercel.app'),
+  title: 'SGALA — Shree Ganpati Agency Ledger Audit System',
+  description: 'A secure, realtime, admin-only digital bahi-khata system for hardware & bath fittings. Cloud-synced ledger with audit trail, auto-save, and traditional register-style UI.',
+  keywords: ['ledger', 'bahi-khata', 'accounting', 'hardware shop', 'bath fittings', 'audit', 'SGALA', 'Shree Ganpati Agency'],
+  authors: [{ name: 'Shree Ganpati Agency' }],
+  openGraph: {
+    type: 'website',
+    title: 'SGALA — Shree Ganpati Agency Ledger Audit System',
+    description: 'Secure, cloud-synced digital bahi-khata with real-time audit trail. Built for hardware & bath fittings business.',
+    siteName: 'SGALA',
+    images: [
+      {
+        url: '/og-image.png',
+        width: 1200,
+        height: 630,
+        alt: 'SGALA - Shree Ganpati Agency Ledger Audit System',
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'SGALA — Shree Ganpati Agency Ledger Audit System',
+    description: 'Secure, cloud-synced digital bahi-khata with real-time audit trail.',
+    images: ['/og-image.png'],
+  },
+  icons: {
+    icon: '/favicon.png',
+  },
 };
 
 export default function RootLayout({

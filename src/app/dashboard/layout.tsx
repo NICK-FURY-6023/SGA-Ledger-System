@@ -58,8 +58,8 @@ export default function DashboardLayout({
 
       <aside className={`sidebar ${sidebarOpen ? 'sidebar--open' : ''}`}>
         <div className="sidebar__header">
-          <img src="/SGA.png" alt="SGA" className="sidebar__logo" />
-          <span className="sidebar__brand">SGA Ledger</span>
+          <img src="/SGA.png" alt="SGALA" className="sidebar__logo" />
+          <span className="sidebar__brand">SGALA</span>
         </div>
 
         <nav className="sidebar__nav">
