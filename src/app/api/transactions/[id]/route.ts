@@ -1,33 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getStore } from '@/lib/server/store';
 import { getAdminFromRequest, unauthorizedResponse, getClientInfo } from '@/lib/server/auth';
-import { createAuditLog } from '@/lib/server/audit';
-
-function recalculateAllBalances() {
-  const store = getStore();
-  store.transactions.sort((a, b) => {
-    const dateComp = new Date(a.date).getTime() - new Date(b.date).getTime();
-    if (dateComp !== 0) return dateComp;
-    return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
-  });
-
-  for (let i = 0; i < store.transactions.length; i++) {
-    const t = store.transactions[i];
-    const prev = i === 0 ? 0 : store.transactions[i - 1].balance;
-    t.balance = prev + (t.credit || 0) + (t.sr || 0) - (t.debit || 0);
-  }
-}
+import {
+  findTransactionById, updateTransaction as dbUpdateTransaction,
+  deleteTransaction as dbDeleteTransaction, createAuditLog
+} from '@/lib/server/db';
 
 export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
   const admin = getAdminFromRequest(req);
   if (!admin) return unauthorizedResponse();
 
   try {
-    const store = getStore();
     const { id } = params;
-    const index = store.transactions.findIndex(t => t.id === id);
-
-    if (index === -1) {
+    const existing = await findTransactionById(id);
+    if (!existing) {
       return NextResponse.json({ error: 'Transaction not found' }, { status: 404 });
     }
 
@@ -45,30 +30,19 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
       return NextResponse.json({ error: 'Negative values are not allowed' }, { status: 400 });
     }
 
-    const existing = store.transactions[index];
     const oldDetails = JSON.stringify({
       billNo: existing.billNo, type: existing.type,
       debit: existing.debit, credit: existing.credit, sr: existing.sr,
     });
 
-    store.transactions[index] = {
-      ...existing,
-      date: date || existing.date,
-      partyName: partyName !== undefined ? partyName?.trim() : existing.partyName,
-      billNo: billNo?.trim() || existing.billNo,
-      folio: folio !== undefined ? folio : existing.folio,
-      debit: debitVal,
-      credit: creditVal,
-      sr: srVal,
-      type: type || existing.type,
-      updatedBy: admin.id,
-      updatedAt: new Date().toISOString(),
-    };
-
-    recalculateAllBalances();
+    const updated = await dbUpdateTransaction(id, {
+      date, partyName, billNo, folio,
+      debit: debitVal, credit: creditVal, sr: srVal,
+      type, adminId: admin.id,
+    });
 
     const { ip, device } = getClientInfo(req);
-    createAuditLog({
+    await createAuditLog({
       adminId: admin.id,
       actionType: 'TRANSACTION_UPDATE',
       actionDetails: `Updated transaction from ${oldDetails}`,
@@ -78,7 +52,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
       sessionId: admin.sessionId,
     });
 
-    return NextResponse.json(store.transactions.find(t => t.id === id));
+    return NextResponse.json(updated);
   } catch (err) {
     console.error('Update transaction error:', err);
     return NextResponse.json({ error: 'Failed to update transaction' }, { status: 500 });
@@ -90,20 +64,15 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
   if (!admin) return unauthorizedResponse();
 
   try {
-    const store = getStore();
     const { id } = params;
-    const index = store.transactions.findIndex(t => t.id === id);
+    const deleted = await dbDeleteTransaction(id);
 
-    if (index === -1) {
+    if (!deleted) {
       return NextResponse.json({ error: 'Transaction not found' }, { status: 404 });
     }
 
-    const deleted = store.transactions[index];
-    store.transactions.splice(index, 1);
-    recalculateAllBalances();
-
     const { ip, device } = getClientInfo(req);
-    createAuditLog({
+    await createAuditLog({
       adminId: admin.id,
       actionType: 'TRANSACTION_DELETE',
       actionDetails: `Deleted transaction: ${deleted.type} - Bill #${deleted.billNo}`,

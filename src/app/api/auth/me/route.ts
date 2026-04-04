@@ -1,14 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getStore, seedAdmin } from '@/lib/server/store';
 import { getAdminFromRequest, unauthorizedResponse } from '@/lib/server/auth';
+import { seedAdmins, findAdminById } from '@/lib/server/db';
 
 export async function GET(req: NextRequest) {
   const adminToken = getAdminFromRequest(req);
   if (!adminToken) return unauthorizedResponse();
 
-  await seedAdmin();
-  const store = getStore();
-  const admin = store.admins.find(a => a.id === adminToken.id);
+  await seedAdmins();
+  const admin = await findAdminById(adminToken.id);
   if (!admin) {
     return NextResponse.json({ error: 'Admin not found' }, { status: 404 });
   }

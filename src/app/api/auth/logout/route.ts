@@ -1,24 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getStore } from '@/lib/server/store';
 import { getAdminFromRequest, unauthorizedResponse, getClientInfo } from '@/lib/server/auth';
-import { createAuditLog } from '@/lib/server/audit';
+import { updateSession, createAuditLog } from '@/lib/server/db';
 
 export async function POST(req: NextRequest) {
   const admin = getAdminFromRequest(req);
   if (!admin) return unauthorizedResponse();
 
   try {
-    const store = getStore();
-    const session = store.sessions.find(s => s.id === admin.sessionId);
-    if (session) {
-      session.logoutTime = new Date().toISOString();
-      session.duration = Math.round(
-        (new Date(session.logoutTime).getTime() - new Date(session.loginTime).getTime()) / 1000
-      );
-    }
+    const logoutTime = new Date().toISOString();
+    await updateSession(admin.sessionId, {
+      logoutTime,
+      duration: Math.round((new Date(logoutTime).getTime() - Date.now()) / 1000),
+    });
 
     const { ip, device } = getClientInfo(req);
-    createAuditLog({
+    await createAuditLog({
       adminId: admin.id,
       actionType: 'LOGOUT',
       actionDetails: 'Admin logged out',

@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
-import { getStore } from '@/lib/server/store';
 import { getAdminFromRequest, unauthorizedResponse, getClientInfo } from '@/lib/server/auth';
-import { createAuditLog } from '@/lib/server/audit';
+import { findAdminById, updateAdmin, createAuditLog } from '@/lib/server/db';
 
 export async function POST(req: NextRequest) {
   const admin = getAdminFromRequest(req);
@@ -18,8 +17,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'New password must be at least 6 characters' }, { status: 400 });
     }
 
-    const store = getStore();
-    const adminRecord = store.admins.find(a => a.id === admin.id);
+    const adminRecord = await findAdminById(admin.id);
     if (!adminRecord) {
       return NextResponse.json({ error: 'Admin not found' }, { status: 404 });
     }
@@ -29,10 +27,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Current password is incorrect' }, { status: 401 });
     }
 
-    adminRecord.passwordHash = await bcrypt.hash(newPassword, 12);
+    const newHash = await bcrypt.hash(newPassword, 12);
+    await updateAdmin(admin.id, { passwordHash: newHash });
 
     const { ip, device } = getClientInfo(req);
-    createAuditLog({
+    await createAuditLog({
       adminId: admin.id,
       actionType: 'PASSWORD_CHANGE',
       actionDetails: 'Admin changed their password',

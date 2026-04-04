@@ -1,14 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getStore } from '@/lib/server/store';
 import { getAdminFromRequest, unauthorizedResponse, getClientInfo } from '@/lib/server/auth';
-import { createAuditLog } from '@/lib/server/audit';
+import { getSettings, updateSettings, createAuditLog } from '@/lib/server/db';
 
 export async function GET(req: NextRequest) {
   const admin = getAdminFromRequest(req);
   if (!admin) return unauthorizedResponse();
 
-  const store = getStore();
-  return NextResponse.json(store.settings);
+  const settings = await getSettings();
+  return NextResponse.json(settings);
 }
 
 export async function PUT(req: NextRequest) {
@@ -16,16 +15,11 @@ export async function PUT(req: NextRequest) {
   if (!admin) return unauthorizedResponse();
 
   try {
-    const store = getStore();
     const { shopName, currency, dateFormat, sortOrder } = await req.json();
-
-    if (shopName) store.settings.shopName = shopName;
-    if (currency) store.settings.currency = currency;
-    if (dateFormat) store.settings.dateFormat = dateFormat;
-    if (sortOrder) store.settings.sortOrder = sortOrder;
+    const updated = await updateSettings({ shopName, currency, dateFormat, sortOrder });
 
     const { ip, device } = getClientInfo(req);
-    createAuditLog({
+    await createAuditLog({
       adminId: admin.id,
       actionType: 'SETTINGS_UPDATE',
       actionDetails: `Updated settings`,
@@ -34,7 +28,7 @@ export async function PUT(req: NextRequest) {
       sessionId: admin.sessionId,
     });
 
-    return NextResponse.json(store.settings);
+    return NextResponse.json(updated);
   } catch {
     return NextResponse.json({ error: 'Failed to update settings' }, { status: 500 });
   }

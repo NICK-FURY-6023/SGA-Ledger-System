@@ -1,14 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
-import { v4 as uuidv4 } from 'uuid';
-import { getStore, seedAdmin } from '@/lib/server/store';
 import { generateToken, getClientInfo } from '@/lib/server/auth';
-import { createAuditLog } from '@/lib/server/audit';
+import { seedAdmins, findAdminByEmail, updateAdmin, createSession, createAuditLog } from '@/lib/server/db';
 
 export async function POST(req: NextRequest) {
   try {
-    await seedAdmin();
-    const store = getStore();
+    await seedAdmins();
     const { email, password } = await req.json();
     const { ip, device } = getClientInfo(req);
 
@@ -16,9 +13,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Email and password are required' }, { status: 400 });
     }
 
-    const admin = store.admins.find(a => a.email === email.toLowerCase() && a.isActive);
+    const admin = await findAdminByEmail(email);
     if (!admin) {
-      createAuditLog({
+      await createAuditLog({
         actionType: 'FAILED_LOGIN',
         actionDetails: `Failed login attempt for email: ${email}`,
         ipAddress: ip,
@@ -29,7 +26,7 @@ export async function POST(req: NextRequest) {
 
     const validPassword = await bcrypt.compare(password, admin.passwordHash);
     if (!validPassword) {
-      createAuditLog({
+      await createAuditLog({
         adminId: admin.id,
         actionType: 'FAILED_LOGIN',
         actionDetails: 'Invalid password',
@@ -39,9 +36,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
     }
 
-    const sessionId = uuidv4();
-    store.sessions.push({
-      id: sessionId,
+    const session = await createSession({
       adminId: admin.id,
       loginTime: new Date().toISOString(),
       logoutTime: null,
@@ -50,28 +45,28 @@ export async function POST(req: NextRequest) {
       deviceInfo: device,
     });
 
-    admin.lastLoginAt = new Date().toISOString();
+    await updateAdmin(admin.id, { lastLoginAt: new Date().toISOString() });
 
     const token = generateToken({
       id: admin.id,
       username: admin.username,
       role: admin.role,
-      sessionId,
+      sessionId: session.id,
     });
 
-    createAuditLog({
+    await createAuditLog({
       adminId: admin.id,
       actionType: 'LOGIN',
       actionDetails: 'Successful login',
       ipAddress: ip,
       deviceInfo: device,
-      sessionId,
+      sessionId: session.id,
     });
 
     return NextResponse.json({
       token,
       admin: { id: admin.id, email: admin.email, username: admin.username, role: admin.role },
-      sessionId,
+      sessionId: session.id,
     });
   } catch (err) {
     console.error('Login error:', err);
