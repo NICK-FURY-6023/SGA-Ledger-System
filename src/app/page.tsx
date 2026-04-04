@@ -52,6 +52,13 @@ export default function LandingPage() {
               <path d="M5 12h14M12 5l7 7-7 7"/>
             </svg>
           </button>
+          <button
+            className="landing__status-btn"
+            onClick={() => router.push('/status')}
+          >
+            <span className="landing__status-dot" />
+            <span>System Status</span>
+          </button>
           <div className="landing__scroll-hint">
             <span>Scroll to explore</span>
             <div className="landing__scroll-arrow">
@@ -267,6 +274,13 @@ export default function LandingPage() {
               <div className="landing-footer__tagline">Shree Ganpati Agency Ledger Audit System</div>
             </div>
           </div>
+          <button
+            className="landing__status-btn landing__status-btn--footer"
+            onClick={() => router.push('/status')}
+          >
+            <span className="landing__status-dot" />
+            <span>System Status</span>
+          </button>
           <div className="landing-footer__copy">
             © {new Date().getFullYear()} Shree Ganpati Agency. All rights reserved.
           </div>

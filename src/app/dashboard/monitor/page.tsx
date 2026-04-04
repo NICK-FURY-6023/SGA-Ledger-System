@@ -15,10 +15,12 @@ interface HealthData {
   timestamp: string;
   database: string;
   uptime: number;
+  startedAt?: string;
   services?: {
     api: { status: string; uptime: number };
     database: { status: string; latency: number; type: string };
     auth: { status: string };
+    audit?: { status: string };
   };
   memory?: { rss: number; heapUsed: number; heapTotal: number; external: number };
   stats?: {
@@ -26,6 +28,9 @@ interface HealthData {
     totalAuditLogs: number; totalAdmins: number; database: string;
   };
   endpoints?: { name: string; path: string; status: string }[];
+  uptimePercent?: number;
+  uptimeHistory?: UptimeEntry[];
+  visitor?: { ip: string; userAgent: string };
   nodeVersion?: string;
   platform?: string;
 }
@@ -35,7 +40,7 @@ interface AuditLog {
   actionDetails: string; ipAddress: string; timestamp: string;
 }
 
-interface UptimeEntry { time: string; status: 'up' | 'down' | 'degraded'; latency: number }
+interface UptimeEntry { time: string; status: 'up' | 'down' | 'degraded'; latency: number; checkedAt?: number }
 
 export default function MonitorPage() {
   const { admin } = useAuth();
@@ -46,8 +51,8 @@ export default function MonitorPage() {
   const [loading, setLoading] = useState(true);
   const [lastRefresh, setLastRefresh] = useState<string>('');
   const [autoRefresh, setAutoRefresh] = useState(true);
-  const [uptimeHistory, setUptimeHistory] = useState<UptimeEntry[]>([]);
   const [apiLatency, setApiLatency] = useState(0);
+  const [hoveredBar, setHoveredBar] = useState<number | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const loadData = useCallback(async () => {
@@ -65,19 +70,8 @@ export default function MonitorPage() {
       setRecentLogins(logs.filter((l: AuditLog) => l.actionType === 'LOGIN' || l.actionType === 'LOGOUT').slice(0, 10));
       setRecentErrors(logs.filter((l: AuditLog) => l.actionType === 'LOGIN_FAILED' || l.actionType === 'ACCESS_DENIED').slice(0, 10));
       setLastRefresh(new Date().toLocaleTimeString('en-IN', { hour12: true, hour: '2-digit', minute: '2-digit', second: '2-digit' }));
-
-      setUptimeHistory(prev => {
-        const entry: UptimeEntry = {
-          time: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
-          status: healthRes.status === 'ok' ? 'up' : 'down',
-          latency: healthRes.services?.database?.latency || 0,
-        };
-        const updated = [...prev, entry];
-        return updated.slice(-30);
-      });
     } catch (err) {
       console.error('Health check failed:', err);
-      setUptimeHistory(prev => [...prev, { time: new Date().toLocaleTimeString(), status: 'down' as const, latency: 0 }].slice(-30));
     } finally {
       setLoading(false);
     }
@@ -110,9 +104,8 @@ export default function MonitorPage() {
 
   const totalLogins = allLogs.filter(l => l.actionType === 'LOGIN').length;
   const totalFailed = allLogs.filter(l => l.actionType === 'LOGIN_FAILED').length;
-  const uptimePercent = uptimeHistory.length > 0
-    ? Math.round((uptimeHistory.filter(u => u.status === 'up').length / uptimeHistory.length) * 100)
-    : 100;
+  const uptimeHistory: UptimeEntry[] = health?.uptimeHistory || [];
+  const uptimePercent = health?.uptimePercent ?? 100;
 
   const cardStyle = {
     background: 'var(--bg-card)', border: '1px solid var(--border)',
@@ -224,36 +217,73 @@ export default function MonitorPage() {
         ))}
       </div>
 
-      {/* Uptime History Timeline */}
-      <div style={sectionTitle}><IconHeart size={16} /> Uptime History (Last {uptimeHistory.length} checks)</div>
+      {/* Uptime History Timeline with Tooltips */}
+      <div style={sectionTitle}><IconHeart size={16} /> Uptime History ({uptimeHistory.length} checks — server-persisted)</div>
       <div style={{ ...cardStyle, marginBottom: '1.5rem' }}>
-        <div style={{ display: 'flex', gap: '3px', alignItems: 'flex-end', height: '50px', padding: '0 4px' }}>
+        <div style={{ display: 'flex', gap: '2px', alignItems: 'flex-end', height: '60px', padding: '0 4px', position: 'relative' }}>
           {uptimeHistory.length === 0 ? (
             <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', width: '100%', textAlign: 'center', paddingTop: '15px' }}>
               Collecting data... checks run every 30s
             </div>
           ) : (
-            uptimeHistory.map((entry, i) => (
-              <div key={i} title={`${entry.time} — ${entry.status} (${entry.latency}ms)`} style={{
-                flex: 1, minWidth: 6, maxWidth: 20, height: '100%',
-                borderRadius: '2px 2px 0 0',
-                background: entry.status === 'up'
-                  ? entry.latency < 200 ? '#00C853' : entry.latency < 500 ? '#7CB342' : '#FF9800'
-                  : '#FF3D00',
-                opacity: 0.85,
-                transition: 'opacity 0.2s',
-                cursor: 'pointer',
-              }}
-                onMouseEnter={(e) => { (e.target as HTMLElement).style.opacity = '1'; }}
-                onMouseLeave={(e) => { (e.target as HTMLElement).style.opacity = '0.85'; }}
-              />
-            ))
+            uptimeHistory.map((entry, i) => {
+              const barColor = entry.status === 'up'
+                ? entry.latency < 100 ? '#00C853' : entry.latency < 300 ? '#7CB342' : '#FF9800'
+                : '#FF3D00';
+              const maxLat = 500;
+              const barH = entry.status === 'down' ? '100%' : `${Math.max(20, Math.min(100, (entry.latency / maxLat) * 100))}%`;
+              return (
+                <div
+                  key={i}
+                  style={{ flex: 1, minWidth: 4, maxWidth: 16, height: '100%', display: 'flex', alignItems: 'flex-end', position: 'relative', cursor: 'pointer' }}
+                  onMouseEnter={() => setHoveredBar(i)}
+                  onMouseLeave={() => setHoveredBar(null)}
+                >
+                  <div style={{
+                    width: '100%', height: barH, borderRadius: '2px 2px 0 0',
+                    background: barColor, transition: 'all 0.2s',
+                    opacity: hoveredBar === i ? 1 : 0.75,
+                    transform: hoveredBar === i ? 'scaleY(1.08)' : 'scaleY(1)',
+                    transformOrigin: 'bottom',
+                    boxShadow: hoveredBar === i ? `0 0 10px ${barColor}70` : 'none',
+                  }} />
+                  {hoveredBar === i && (
+                    <div style={{
+                      position: 'absolute', bottom: 'calc(100% + 8px)', left: '50%', transform: 'translateX(-50%)',
+                      background: '#1a1a2e', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '8px',
+                      padding: '8px 12px', minWidth: '160px', zIndex: 100, pointerEvents: 'none',
+                      boxShadow: '0 8px 24px rgba(0,0,0,0.6)', fontSize: '0.72rem', whiteSpace: 'nowrap',
+                    }}>
+                      <div style={{
+                        position: 'absolute', bottom: '-5px', left: '50%', transform: 'translateX(-50%) rotate(45deg)',
+                        width: '8px', height: '8px', background: '#1a1a2e',
+                        borderRight: '1px solid rgba(255,255,255,0.15)', borderBottom: '1px solid rgba(255,255,255,0.15)',
+                      }} />
+                      <div style={{ fontWeight: 700, color: '#fff', marginBottom: '3px' }}>{entry.time}</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '2px' }}>
+                        <div style={{ width: 6, height: 6, borderRadius: '50%', background: barColor }} />
+                        <span style={{ color: barColor, fontWeight: 600, textTransform: 'uppercase' }}>{entry.status}</span>
+                      </div>
+                      <div style={{ color: '#aaa' }}>
+                        Latency: <span style={{ color: '#fff', fontFamily: 'var(--font-mono)' }}>{entry.latency}ms</span>
+                      </div>
+                      {entry.checkedAt && (
+                        <div style={{ color: '#666', fontSize: '0.65rem', marginTop: '2px' }}>
+                          {new Date(entry.checkedAt).toLocaleString('en-IN')}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })
           )}
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '6px', fontSize: '0.65rem', color: 'var(--text-muted)' }}>
           <span>{uptimeHistory[0]?.time || '—'}</span>
           <span style={{ display: 'flex', gap: '12px' }}>
-            <span><span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: 2, background: '#00C853', marginRight: 3 }}/>Good</span>
+            <span><span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: 2, background: '#00C853', marginRight: 3 }}/>Fast</span>
+            <span><span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: 2, background: '#7CB342', marginRight: 3 }}/>Normal</span>
             <span><span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: 2, background: '#FF9800', marginRight: 3 }}/>Slow</span>
             <span><span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: 2, background: '#FF3D00', marginRight: 3 }}/>Down</span>
           </span>
@@ -350,6 +380,7 @@ export default function MonitorPage() {
           { label: 'Uptime', value: health?.uptime ? formatUptime(health.uptime) : '—', icon: <IconClock size={14} /> },
           { label: 'Logged In', value: admin?.email?.split('@')[0] || '—', icon: <IconUsers size={14} /> },
           { label: 'Last Check', value: lastRefresh || '—', icon: <IconRefresh size={14} /> },
+          { label: 'Your IP', value: health?.visitor?.ip || '—', icon: <IconGlobe size={14} /> },
         ].map((info) => (
           <div key={info.label} style={{
             ...cardStyle, padding: '0.8rem 1rem', display: 'flex', alignItems: 'center', gap: '0.6rem',
