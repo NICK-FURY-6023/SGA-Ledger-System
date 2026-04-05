@@ -18,6 +18,7 @@ interface Party {
   name: string;
   phone?: string;
   address?: string;
+  gst?: string;
   notes?: string;
   createdBy: string;
   createdAt: string;
@@ -56,7 +57,7 @@ export default function PartyDetailPage() {
 
   // Edit party modal
   const [showEdit, setShowEdit] = useState(false);
-  const [editData, setEditData] = useState({ name: '', phone: '', address: '', notes: '' });
+  const [editData, setEditData] = useState({ name: '', phone: '', address: '', gst: '', notes: '' });
   const [editError, setEditError] = useState('');
   const [editSaving, setEditSaving] = useState(false);
 
@@ -89,6 +90,7 @@ export default function PartyDetailPage() {
       name: party.name,
       phone: party.phone || '',
       address: party.address || '',
+      gst: party.gst || '',
       notes: party.notes || '',
     });
     setEditError('');
@@ -108,6 +110,7 @@ export default function PartyDetailPage() {
         name: editData.name.trim(),
         phone: editData.phone.trim() || undefined,
         address: editData.address.trim() || undefined,
+        gst: editData.gst.trim() || undefined,
         notes: editData.notes.trim() || undefined,
       });
       toast.success('Party updated successfully');
@@ -244,6 +247,11 @@ export default function PartyDetailPage() {
               {party.notes && (
                 <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <IconFileText size={14} /> {party.notes}
+                </span>
+              )}
+              {party.gst && (
+                <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  GSTIN: {party.gst}
                 </span>
               )}
               <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -573,6 +581,15 @@ export default function PartyDetailPage() {
                   onChange={(e) => setEditData({ ...editData, address: e.target.value })}
                 />
               </div>
+              <div className="entry-form__field">
+                <label className="entry-form__label">GSTIN No.</label>
+                <input
+                  type="text"
+                  placeholder="e.g. 09AAACH7409R1ZX"
+                  value={editData.gst}
+                  onChange={(e) => setEditData({ ...editData, gst: e.target.value })}
+                />
+              </div>
               <div className="entry-form__field entry-form__field--full">
                 <label className="entry-form__label">Notes</label>
                 <textarea
@@ -605,7 +622,7 @@ export default function PartyDetailPage() {
               Once closed, no new entries can be added to this page. This action cannot be undone.
             </p>
             <div style={{ display: 'flex', gap: '0.8rem', justifyContent: 'center' }}>
-              <button className="ledger__filter-btn" onClick={() => setClosingPage(null)}>
+              <button className="register__btn" onClick={() => setClosingPage(null)}>
                 Cancel
               </button>
               <button

@@ -17,6 +17,7 @@ interface Party {
   name: string;
   phone?: string;
   address?: string;
+  gst?: string;
   notes?: string;
   totalPages: number;
   totalTransactions: number;
@@ -35,13 +36,13 @@ export default function PartiesPage() {
 
   // New khata modal
   const [showCreate, setShowCreate] = useState(false);
-  const [createData, setCreateData] = useState({ name: '', phone: '', address: '', notes: '' });
+  const [createData, setCreateData] = useState({ name: '', phone: '', address: '', gst: '', notes: '' });
   const [createError, setCreateError] = useState('');
   const [saving, setSaving] = useState(false);
 
   // Edit modal
   const [editParty, setEditParty] = useState<Party | null>(null);
-  const [editData, setEditData] = useState({ name: '', phone: '', address: '', notes: '' });
+  const [editData, setEditData] = useState({ name: '', phone: '', address: '', gst: '', notes: '' });
   const [editError, setEditError] = useState('');
   const [editSaving, setEditSaving] = useState(false);
 
@@ -81,11 +82,12 @@ export default function PartiesPage() {
         name: createData.name.trim(),
         phone: createData.phone.trim() || undefined,
         address: createData.address.trim() || undefined,
+        gst: createData.gst.trim() || undefined,
         notes: createData.notes.trim() || undefined,
       });
       toast.success('Khata created successfully');
       setShowCreate(false);
-      setCreateData({ name: '', phone: '', address: '', notes: '' });
+      setCreateData({ name: '', phone: '', address: '', gst: '', notes: '' });
       await loadParties();
     } catch (err: any) {
       const msg = err.message || 'Failed to create khata';
@@ -102,6 +104,7 @@ export default function PartiesPage() {
       name: party.name,
       phone: party.phone || '',
       address: party.address || '',
+      gst: party.gst || '',
       notes: party.notes || '',
     });
     setEditError('');
@@ -121,6 +124,7 @@ export default function PartiesPage() {
         name: editData.name.trim(),
         phone: editData.phone.trim() || undefined,
         address: editData.address.trim() || undefined,
+        gst: editData.gst.trim() || undefined,
         notes: editData.notes.trim() || undefined,
       });
       toast.success('Khata updated successfully');
@@ -164,7 +168,7 @@ export default function PartiesPage() {
         </div>
         <button
           className="ledger__add-btn"
-          onClick={() => { setCreateData({ name: '', phone: '', address: '', notes: '' }); setCreateError(''); setShowCreate(true); }}
+          onClick={() => { setCreateData({ name: '', phone: '', address: '', gst: '', notes: '' }); setCreateError(''); setShowCreate(true); }}
         >
           <IconPlus size={14} /> New Khata
         </button>
@@ -416,6 +420,15 @@ export default function PartiesPage() {
                   onChange={(e) => setCreateData({ ...createData, address: e.target.value })}
                 />
               </div>
+              <div className="entry-form__field">
+                <label className="entry-form__label">GSTIN No.</label>
+                <input
+                  type="text"
+                  placeholder="e.g. 09AAACH7409R1ZX"
+                  value={createData.gst}
+                  onChange={(e) => setCreateData({ ...createData, gst: e.target.value })}
+                />
+              </div>
               <div className="entry-form__field entry-form__field--full">
                 <label className="entry-form__label">Notes</label>
                 <textarea
@@ -489,6 +502,15 @@ export default function PartiesPage() {
                   placeholder="e.g. Main Market, Agra"
                   value={editData.address}
                   onChange={(e) => setEditData({ ...editData, address: e.target.value })}
+                />
+              </div>
+              <div className="entry-form__field">
+                <label className="entry-form__label">GSTIN No.</label>
+                <input
+                  type="text"
+                  placeholder="e.g. 09AAACH7409R1ZX"
+                  value={editData.gst}
+                  onChange={(e) => setEditData({ ...editData, gst: e.target.value })}
                 />
               </div>
               <div className="entry-form__field entry-form__field--full">

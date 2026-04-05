@@ -111,6 +111,10 @@ export const partyAPI = {
     apiRequest(`/api/parties/${partyId}/pages/${pageId}`, { method: 'PATCH', body: { action: 'close' } }),
   addTransaction: (partyId: string, pageId: string, data: any) =>
     apiRequest(`/api/parties/${partyId}/pages/${pageId}/transactions`, { method: 'POST', body: data }),
+  updateTransaction: (partyId: string, pageId: string, txId: string, data: any) =>
+    apiRequest(`/api/parties/${partyId}/pages/${pageId}/transactions/${txId}`, { method: 'PUT', body: data }),
+  deleteTransaction: (partyId: string, pageId: string, txId: string) =>
+    apiRequest(`/api/parties/${partyId}/pages/${pageId}/transactions/${txId}`, { method: 'DELETE' }),
 };
 
 // Health check

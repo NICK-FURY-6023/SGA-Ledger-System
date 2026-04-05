@@ -263,6 +263,7 @@ export async function createTransaction(data: {
     sr: data.sr,
     type: data.type,
     balance: 0,
+    lineNumber: 0,
     createdBy: data.adminId,
     updatedBy: data.adminId,
     createdAt: new Date().toISOString(),
@@ -509,13 +510,14 @@ export async function updateSettings(data: Partial<Settings>): Promise<Settings>
 // ─── PARTY (KHATA) OPERATIONS ───
 
 export async function createParty(data: {
-  name: string; phone?: string; address?: string; notes?: string; adminId: string;
+  name: string; phone?: string; address?: string; gst?: string; notes?: string; adminId: string;
 }): Promise<Party> {
   const party: Party = {
     id: uuidv4(),
     name: data.name.trim(),
     phone: data.phone?.trim() || '',
     address: data.address?.trim() || '',
+    gst: data.gst?.trim() || '',
     notes: data.notes?.trim() || '',
     isActive: true,
     createdBy: data.adminId,
@@ -616,7 +618,7 @@ export async function getPartyById(id: string): Promise<Party | null> {
   });
 }
 
-export async function updateParty(id: string, data: Partial<Pick<Party, 'name' | 'phone' | 'address' | 'notes'>>): Promise<Party | null> {
+export async function updateParty(id: string, data: Partial<Pick<Party, 'name' | 'phone' | 'address' | 'gst' | 'notes'>>): Promise<Party | null> {
   const updates = { ...data, updatedAt: new Date().toISOString() };
   let result: Party | null = null;
   if (useFirestore()) {
@@ -661,7 +663,7 @@ export async function deleteParty(id: string): Promise<boolean> {
 // ─── LEDGER PAGE OPERATIONS ───
 
 export async function createLedgerPage(data: {
-  partyId: string; title?: string; openingBalance?: number; adminId: string;
+  partyId: string; title?: string; openingBalance?: number; maxLines?: number; adminId: string;
 }): Promise<LedgerPage> {
   let pageNumber = 1;
   if (useFirestore()) {
@@ -684,6 +686,7 @@ export async function createLedgerPage(data: {
     title: data.title?.trim() || `Page ${pageNumber}`,
     status: 'open',
     openingBalance: data.openingBalance || 0,
+    maxLines: data.maxLines || 25,
     createdBy: data.adminId,
     createdAt: new Date().toISOString(),
     closedAt: null,
@@ -830,6 +833,18 @@ export async function createPageTransaction(data: {
   billNo: string; folio?: string; debit: number; credit: number;
   sr: number; type: 'CIR' | 'DIR' | 'SR'; adminId: string;
 }): Promise<Transaction> {
+  // Determine line number for this page
+  let lineNumber = 1;
+  if (useFirestore()) {
+    const db = getDb()!;
+    const snap = await db.collection('transactions').where('pageId', '==', data.pageId).get();
+    lineNumber = snap.size + 1;
+  } else {
+    const store = getStore();
+    const existing = store.transactions.filter(t => t.pageId === data.pageId);
+    lineNumber = existing.length + 1;
+  }
+
   const tx: Transaction = {
     id: uuidv4(),
     date: data.date,
@@ -841,6 +856,7 @@ export async function createPageTransaction(data: {
     sr: data.sr,
     type: data.type,
     balance: 0,
+    lineNumber,
     partyId: data.partyId,
     pageId: data.pageId,
     createdBy: data.adminId,
@@ -863,6 +879,95 @@ export async function createPageTransaction(data: {
     recalculateBalancesMemory();
     await invalidateTransactionCaches(data.partyId, data.pageId);
     return store.transactions.find(t => t.id === tx.id)!;
+  }
+}
+
+// ─── PAGE TRANSACTION UPDATE / DELETE ───
+
+export async function updatePageTransaction(txId: string, data: {
+  date?: string; billNo?: string; folio?: string; debit?: number;
+  credit?: number; sr?: number; type?: 'CIR' | 'DIR' | 'SR'; adminId: string;
+}): Promise<Transaction | null> {
+  if (useFirestore()) {
+    const db = getDb()!;
+    const docRef = db.collection('transactions').doc(txId);
+    const doc = await docRef.get();
+    if (!doc.exists) return null;
+    const existing = doc.data() as Transaction;
+    const updated = {
+      ...existing,
+      ...(data.date !== undefined && { date: data.date }),
+      ...(data.billNo !== undefined && { billNo: data.billNo.trim() }),
+      ...(data.folio !== undefined && { folio: data.folio }),
+      ...(data.debit !== undefined && { debit: data.debit }),
+      ...(data.credit !== undefined && { credit: data.credit }),
+      ...(data.sr !== undefined && { sr: data.sr }),
+      ...(data.type !== undefined && { type: data.type }),
+      updatedBy: data.adminId,
+      updatedAt: new Date().toISOString(),
+    };
+    await docRef.set(updated);
+    await recalculateBalancesFirestore();
+    const refreshed = await docRef.get();
+    await invalidateTransactionCaches(existing.partyId, existing.pageId);
+    return refreshed.data() as Transaction;
+  } else {
+    const store = getStore();
+    const tx = store.transactions.find(t => t.id === txId);
+    if (!tx) return null;
+    if (data.date !== undefined) tx.date = data.date;
+    if (data.billNo !== undefined) tx.billNo = data.billNo.trim();
+    if (data.folio !== undefined) tx.folio = data.folio;
+    if (data.debit !== undefined) tx.debit = data.debit;
+    if (data.credit !== undefined) tx.credit = data.credit;
+    if (data.sr !== undefined) tx.sr = data.sr;
+    if (data.type !== undefined) tx.type = data.type;
+    tx.updatedBy = data.adminId;
+    tx.updatedAt = new Date().toISOString();
+    recalculateBalancesMemory();
+    await invalidateTransactionCaches(tx.partyId, tx.pageId);
+    return tx;
+  }
+}
+
+export async function deletePageTransaction(txId: string): Promise<Transaction | null> {
+  if (useFirestore()) {
+    const db = getDb()!;
+    const docRef = db.collection('transactions').doc(txId);
+    const doc = await docRef.get();
+    if (!doc.exists) return null;
+    const deleted = doc.data() as Transaction;
+    await docRef.delete();
+    // Re-number remaining transactions on this page
+    const snap = await db.collection('transactions')
+      .where('pageId', '==', deleted.pageId)
+      .orderBy('date', 'asc')
+      .orderBy('createdAt', 'asc')
+      .get();
+    const batch = db.batch();
+    snap.docs.forEach((d, i) => {
+      batch.update(d.ref, { lineNumber: i + 1 });
+    });
+    await batch.commit();
+    await recalculateBalancesFirestore();
+    await invalidateTransactionCaches(deleted.partyId, deleted.pageId);
+    return deleted;
+  } else {
+    const store = getStore();
+    const idx = store.transactions.findIndex(t => t.id === txId);
+    if (idx === -1) return null;
+    const [deleted] = store.transactions.splice(idx, 1);
+    // Re-number remaining transactions on this page
+    const pageTxns = store.transactions
+      .filter(t => t.pageId === deleted.pageId)
+      .sort((a, b) => {
+        const d = new Date(a.date).getTime() - new Date(b.date).getTime();
+        return d !== 0 ? d : new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+      });
+    pageTxns.forEach((t, i) => { t.lineNumber = i + 1; });
+    recalculateBalancesMemory();
+    await invalidateTransactionCaches(deleted.partyId, deleted.pageId);
+    return deleted;
   }
 }
 

@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
     if (!admin) return unauthorizedResponse();
 
     const body = await req.json();
-    const { name, phone, address, notes } = body;
+    const { name, phone, address, gst, notes } = body;
 
     if (!name || typeof name !== 'string' || name.trim() === '') {
       return NextResponse.json({ error: 'Party name is required' }, { status: 400 });
@@ -37,6 +37,7 @@ export async function POST(req: NextRequest) {
       name: name.trim(),
       phone: phone || undefined,
       address: address || undefined,
+      gst: gst || undefined,
       notes: notes || undefined,
       adminId: admin.id,
     });

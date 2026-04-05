@@ -33,6 +33,7 @@ export interface Transaction {
   sr: number;
   type: 'CIR' | 'DIR' | 'SR';
   balance: number;
+  lineNumber: number;
   partyId?: string;
   pageId?: string;
   createdBy: string;
@@ -65,6 +66,7 @@ export interface Party {
   name: string;
   phone: string;
   address: string;
+  gst: string;
   notes: string;
   isActive: boolean;
   createdBy: string;
@@ -79,6 +81,7 @@ export interface LedgerPage {
   title: string;
   status: 'open' | 'closed';
   openingBalance: number;
+  maxLines: number;
   createdBy: string;
   createdAt: string;
   closedAt: string | null;

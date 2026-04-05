@@ -30,7 +30,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 
     const { id } = params;
     const body = await req.json();
-    const { name, phone, address, notes } = body;
+    const { name, phone, address, gst, notes } = body;
 
     const existing = await getPartyById(id);
     if (!existing) {
@@ -41,6 +41,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
       name: name !== undefined ? name : undefined,
       phone: phone !== undefined ? phone : undefined,
       address: address !== undefined ? address : undefined,
+      gst: gst !== undefined ? gst : undefined,
       notes: notes !== undefined ? notes : undefined,
     });
 
