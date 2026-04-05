@@ -35,6 +35,23 @@ interface HealthData {
   uptimePercent: number;
   uptimeHistory: UptimeEntry[];
   visitor: { ip: string; userAgent: string };
+  monitoring?: {
+    monitoringSince: number | null;
+    totalChecks: number;
+    upChecks: number;
+    downChecks: number;
+    degradedChecks: number;
+    lastDownAt: number | null;
+    onlineSince: number | null;
+    avgLatency: number;
+  };
+  serviceTimelines?: Record<string, {
+    firstSeen: number | null;
+    lastDown: number | null;
+    onlineSince: number | null;
+    totalChecks: number;
+    upChecks: number;
+  }>;
 }
 
 interface GeoData {
@@ -338,6 +355,26 @@ export default function StatusPage() {
     return `${s}s`;
   };
 
+  const formatDate = (ts: number | null | undefined) => {
+    if (!ts) return '—';
+    return new Date(ts).toLocaleDateString('en-IN', {
+      day: '2-digit', month: 'short', year: 'numeric',
+      hour: '2-digit', minute: '2-digit', hour12: true,
+    });
+  };
+
+  const formatTimeSince = (ts: number | null | undefined) => {
+    if (!ts) return '—';
+    const diff = Math.floor((Date.now() - ts) / 1000);
+    const d = Math.floor(diff / 86400);
+    const h = Math.floor((diff % 86400) / 3600);
+    const m = Math.floor((diff % 3600) / 60);
+    if (d > 0) return `${d}d ${h}h ago`;
+    if (h > 0) return `${h}h ${m}m ago`;
+    if (m > 0) return `${m}m ago`;
+    return 'Just now';
+  };
+
   const getStatusColor = (status: string) => {
     if (['operational', 'connected', 'ok', 'up'].includes(status)) return '#00C853';
     if (['degraded', 'in-memory', 'slow'].includes(status)) return '#FF9800';
@@ -357,13 +394,16 @@ export default function StatusPage() {
   const uptimeHistory = health?.uptimeHistory || [];
   const uptimePercent = health?.uptimePercent ?? 100;
 
+  const tl = health?.serviceTimelines || {};
+  const mon = health?.monitoring;
+
   const services = health ? [
-    { key: 'api', name: 'API Server', icon: <SvgGlobe size={20} />, status: health.services.api.status, detail: `Uptime: ${formatUptime(health.uptime)}` },
-    { key: 'database', name: 'Firestore', icon: <SvgDatabase size={20} />, status: health.services.database.status, detail: `${health.services.database.type} — ${health.services.database.latency}ms latency` },
-    { key: 'mongodb', name: 'MongoDB Atlas', icon: <SvgLeaf size={20} />, status: health.services.mongodb?.status || 'not-configured', detail: (health.services.mongodb?.latency ?? -1) >= 0 ? `Status store — ${health.services.mongodb?.latency}ms latency` : 'Status store — not configured' },
-    { key: 'cache', name: 'Redis Cache', icon: <SvgZap size={20} />, status: health.services.cache?.status || 'not-configured', detail: (health.services.cache?.latency ?? -1) >= 0 ? `Upstash Redis — ${health.services.cache?.latency}ms latency` : 'Upstash Redis — not configured' },
-    { key: 'auth', name: 'Authentication', icon: <SvgShield size={20} />, status: health.services.auth.status, detail: 'JWT + bcrypt sessions' },
-    { key: 'audit', name: 'Audit System', icon: <SvgActivity size={20} />, status: health.services.audit.status, detail: 'Event logging active' },
+    { key: 'api', tlKey: 'api', name: 'API Server', icon: <SvgGlobe size={20} />, status: health.services.api.status, detail: `Uptime: ${formatUptime(health.uptime)}`, latency: 0 },
+    { key: 'database', tlKey: 'firestore', name: 'Firestore', icon: <SvgDatabase size={20} />, status: health.services.database.status, detail: `${health.services.database.type} — ${health.services.database.latency}ms latency`, latency: health.services.database.latency || 0 },
+    { key: 'mongodb', tlKey: 'mongodb', name: 'MongoDB Atlas', icon: <SvgLeaf size={20} />, status: health.services.mongodb?.status || 'not-configured', detail: (health.services.mongodb?.latency ?? -1) >= 0 ? `Status store — ${health.services.mongodb?.latency}ms latency` : 'Status store — not configured', latency: health.services.mongodb?.latency || 0 },
+    { key: 'cache', tlKey: 'redis', name: 'Redis Cache', icon: <SvgZap size={20} />, status: health.services.cache?.status || 'not-configured', detail: (health.services.cache?.latency ?? -1) >= 0 ? `Upstash Redis — ${health.services.cache?.latency}ms latency` : 'Upstash Redis — not configured', latency: health.services.cache?.latency || 0 },
+    { key: 'auth', tlKey: 'auth', name: 'Authentication', icon: <SvgShield size={20} />, status: health.services.auth.status, detail: 'JWT + bcrypt sessions', latency: 0 },
+    { key: 'audit', tlKey: 'audit', name: 'Audit System', icon: <SvgActivity size={20} />, status: health.services.audit.status, detail: 'Event logging active', latency: 0 },
   ] : [];
 
   return (
@@ -453,8 +493,13 @@ export default function StatusPage() {
           </h1>
           <p style={{ color: '#aaa', fontSize: '0.85rem', margin: 0 }}>
             Last checked: {lastRefresh || '—'}
-            {health?.startedAt && ` | Running since: ${new Date(health.startedAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}`}
+            {health?.startedAt && ` | Server started: ${new Date(health.startedAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })}`}
           </p>
+          {mon?.monitoringSince && (
+            <p style={{ color: '#888', fontSize: '0.78rem', margin: '0.4rem 0 0', fontFamily: "'JetBrains Mono', monospace" }}>
+              Monitoring since: {formatDate(mon.monitoringSince)} | {mon.totalChecks} total checks | Avg latency: {mon.avgLatency}ms
+            </p>
+          )}
         </div>
 
         {/* ─── Quick Stats Row ─── */}
@@ -462,10 +507,10 @@ export default function StatusPage() {
           display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginBottom: '2rem',
         }}>
           {[
-            { label: 'Uptime', value: `${uptimePercent}%`, color: uptimePercent >= 99 ? '#00C853' : uptimePercent >= 95 ? '#FF9800' : '#FF3D00' },
-            { label: 'DB Latency', value: health?.services?.database?.latency !== undefined ? `${health.services.database.latency}ms` : '—', color: (health?.services?.database?.latency || 0) < 200 ? '#00C853' : '#FF9800' },
-            { label: 'Cache Latency', value: (health?.services?.cache?.latency ?? -1) >= 0 ? `${health?.services?.cache?.latency}ms` : '—', color: (health?.services?.cache?.latency || 0) < 100 ? '#00C853' : '#FF9800' },
-            { label: 'Server Uptime', value: health?.uptime ? formatUptime(health.uptime) : '—', color: '#0066FF' },
+            { label: 'Total Uptime', value: `${uptimePercent}%`, sub: mon ? `${mon.totalChecks} checks` : '', color: uptimePercent >= 99 ? '#00C853' : uptimePercent >= 95 ? '#FF9800' : '#FF3D00' },
+            { label: 'Avg Latency', value: mon?.avgLatency ? `${mon.avgLatency}ms` : (health?.services?.database?.latency !== undefined ? `${health.services.database.latency}ms` : '—'), sub: 'All time', color: (mon?.avgLatency || health?.services?.database?.latency || 0) < 200 ? '#00C853' : '#FF9800' },
+            { label: 'Online Since', value: mon?.onlineSince ? formatTimeSince(mon.onlineSince) : '—', sub: mon?.onlineSince ? formatDate(mon.onlineSince) : '', color: '#00C853' },
+            { label: 'Server Uptime', value: health?.uptime ? formatUptime(health.uptime) : '—', sub: health?.startedAt ? `Since ${new Date(health.startedAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}` : '', color: '#0066FF' },
           ].map(s => (
             <div key={s.label} style={{
               background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)',
@@ -477,6 +522,11 @@ export default function StatusPage() {
               <div style={{ fontSize: '1.6rem', fontWeight: 800, color: s.color, fontFamily: "'JetBrains Mono', monospace" }}>
                 {s.value}
               </div>
+              {s.sub && (
+                <div style={{ fontSize: '0.65rem', color: '#888', marginTop: '0.3rem', fontFamily: "'JetBrains Mono', monospace" }}>
+                  {s.sub}
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -564,15 +614,31 @@ export default function StatusPage() {
                   )}
                 </div>
 
-                {/* Uptime percentage below the bar */}
+                {/* Uptime percentage + timeline below the bar */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '6px' }}>
                   <span style={{ fontSize: '0.75rem', color: '#888', fontFamily: "'JetBrains Mono', monospace" }}>
-                    {uptimePercent}% uptime
+                    {tl[svc.tlKey]?.totalChecks ? `${Math.round((tl[svc.tlKey].upChecks / tl[svc.tlKey].totalChecks) * 100)}%` : `${uptimePercent}%`} uptime
                   </span>
                   <span style={{ fontSize: '0.68rem', color: '#999' }}>
-                    {uptimeHistory.length} checks
+                    {tl[svc.tlKey]?.totalChecks || uptimeHistory.length} checks
                   </span>
                 </div>
+
+                {/* Per-service timeline details */}
+                {tl[svc.tlKey]?.firstSeen && (
+                  <div style={{
+                    display: 'flex', flexWrap: 'wrap', gap: '0.6rem 1.5rem', marginTop: '8px',
+                    padding: '8px 10px', borderRadius: '8px',
+                    background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)',
+                    fontSize: '0.68rem', color: '#888', fontFamily: "'JetBrains Mono', monospace",
+                  }}>
+                    <span>First seen: <span style={{ color: '#aaa' }}>{formatDate(tl[svc.tlKey].firstSeen)}</span></span>
+                    <span>Online since: <span style={{ color: '#00C853' }}>{tl[svc.tlKey].onlineSince ? formatDate(tl[svc.tlKey].onlineSince) : '—'}</span></span>
+                    {tl[svc.tlKey].lastDown && (
+                      <span>Last down: <span style={{ color: '#FF3D00' }}>{formatDate(tl[svc.tlKey].lastDown)}</span></span>
+                    )}
+                  </div>
+                )}
               </div>
             ))}
           </div>

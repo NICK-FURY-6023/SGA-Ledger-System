@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { isFirebaseConfigured, getDb } from '@/lib/server/firebase';
 import { getSystemStats } from '@/lib/server/db';
 import { isUpstashConfigured, getRedis } from '@/lib/server/upstash';
-import { isMongoConfigured, pingMongo, loadUptimeFromMongo, saveUptimeToMongo, UptimeEntry } from '@/lib/server/mongodb';
+import { isMongoConfigured, pingMongo, loadUptimeFromMongo, saveUptimeToMongo, getUptimeStats, saveServiceStatuses, getServiceTimelines, UptimeEntry } from '@/lib/server/mongodb';
 
 const startTime = Date.now();
 
@@ -12,11 +12,9 @@ const startTime = Date.now();
 // Upstash Redis → Caching layer (speeds up reads)
 
 async function loadUptimeHistory(): Promise<UptimeEntry[]> {
-  // Primary: MongoDB Atlas
   if (isMongoConfigured()) {
     return loadUptimeFromMongo();
   }
-  // Fallback: Firestore (if MongoDB not configured yet)
   if (isFirebaseConfigured() && getDb()) {
     try {
       const db = getDb()!;
@@ -34,12 +32,10 @@ async function loadUptimeHistory(): Promise<UptimeEntry[]> {
 }
 
 async function saveUptimeEntry(entry: UptimeEntry) {
-  // Primary: MongoDB Atlas
   if (isMongoConfigured()) {
     await saveUptimeToMongo(entry);
     return;
   }
-  // Fallback: Firestore (if MongoDB not configured yet)
   if (isFirebaseConfigured() && getDb()) {
     try {
       await getDb()!.collection('uptime_history').add(entry);
@@ -56,7 +52,6 @@ export async function GET(req: NextRequest) {
   const uptime = Math.floor((Date.now() - startTime) / 1000);
   const memUsage = process.memoryUsage();
 
-  // Detect visitor info from headers
   const forwarded = req.headers.get('x-forwarded-for');
   const ip = forwarded ? forwarded.split(',')[0].trim() : req.headers.get('x-real-ip') || 'unknown';
   const userAgent = req.headers.get('user-agent') || '';
@@ -103,7 +98,7 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  // MongoDB health check (status data store)
+  // MongoDB health check
   let mongoLatency = -1;
   let mongoStatus = 'not-configured';
   if (isMongoConfigured()) {
@@ -115,7 +110,7 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  // Create uptime entry and save
+  // Save uptime entry
   const entryStatus: 'up' | 'down' | 'degraded' =
     dbStatus === 'error' ? 'down' : dbLatency > 500 ? 'degraded' : 'up';
   const newEntry = {
@@ -126,28 +121,65 @@ export async function GET(req: NextRequest) {
   };
   await saveUptimeEntry(newEntry);
 
-  // Load full history (MongoDB primary, Firestore fallback)
+  // Save per-service status to MongoDB
+  if (isMongoConfigured()) {
+    await saveServiceStatuses([
+      { name: 'api', status: 'operational', latency: 0 },
+      { name: 'firestore', status: dbStatus, latency: dbLatency },
+      { name: 'mongodb', status: mongoStatus, latency: mongoLatency },
+      { name: 'redis', status: redisStatus, latency: redisLatency },
+      { name: 'auth', status: 'operational', latency: 0 },
+      { name: 'audit', status: 'operational', latency: 0 },
+    ]);
+  }
+
+  // Load full history
   const uptimeLog = await loadUptimeHistory();
 
-  // Uptime percentage from persistent log
-  const checksUp = uptimeLog.filter(u => u.status === 'up').length;
-  const uptimePercent = uptimeLog.length > 0 ? Math.round((checksUp / uptimeLog.length) * 100) : 100;
+  // Get aggregated stats from MongoDB (ALL history, not just current session)
+  let globalStats = null;
+  let serviceTimelines: Record<string, any> = {};
+  if (isMongoConfigured()) {
+    [globalStats, serviceTimelines] = await Promise.all([
+      getUptimeStats(),
+      getServiceTimelines(),
+    ]);
+  }
+
+  // Uptime percentage — use MongoDB aggregated stats if available, else compute from log
+  const uptimePercent = globalStats
+    ? globalStats.uptimePercent
+    : (uptimeLog.length > 0 ? Math.round((uptimeLog.filter(u => u.status === 'up').length / uptimeLog.length) * 100) : 100);
+
+  const responseData = {
+    ...base,
+    services: {
+      api: { status: 'operational', uptime },
+      database: { status: dbStatus, latency: dbLatency, type: base.database },
+      mongodb: { status: mongoStatus, latency: mongoLatency, type: 'mongodb-atlas' },
+      cache: { status: redisStatus, latency: redisLatency, type: 'upstash-redis' },
+      auth: { status: 'operational' },
+      audit: { status: 'operational' },
+    },
+    uptimePercent,
+    uptimeHistory: uptimeLog.slice(-90),
+    visitor: { ip, userAgent },
+    // Global monitoring data from MongoDB
+    monitoring: globalStats ? {
+      monitoringSince: globalStats.monitoringSince,
+      totalChecks: globalStats.totalChecks,
+      upChecks: globalStats.upChecks,
+      downChecks: globalStats.downChecks,
+      degradedChecks: globalStats.degradedChecks,
+      lastDownAt: globalStats.lastDownAt,
+      onlineSince: globalStats.onlineSince,
+      avgLatency: globalStats.avgLatency,
+    } : null,
+    serviceTimelines,
+  };
 
   if (!detailed) {
-    return NextResponse.json({
-      ...base,
-      services: {
-        api: { status: 'operational', uptime },
-        database: { status: dbStatus, latency: dbLatency, type: base.database },
-        mongodb: { status: mongoStatus, latency: mongoLatency, type: 'mongodb-atlas' },
-        cache: { status: redisStatus, latency: redisLatency, type: 'upstash-redis' },
-        auth: { status: 'operational' },
-        audit: { status: 'operational' },
-      },
-      uptimePercent,
-      uptimeHistory: uptimeLog.slice(-60),
-      visitor: { ip, userAgent },
-    });
+    return NextResponse.json(responseData);
   }
 
   // Detailed health for developer monitor
@@ -164,15 +196,7 @@ export async function GET(req: NextRequest) {
   ];
 
   return NextResponse.json({
-    ...base,
-    services: {
-      api: { status: 'operational', uptime },
-      database: { status: dbStatus, latency: dbLatency, type: base.database },
-      mongodb: { status: mongoStatus, latency: mongoLatency, type: 'mongodb-atlas' },
-      cache: { status: redisStatus, latency: redisLatency, type: 'upstash-redis' },
-      auth: { status: 'operational' },
-      audit: { status: 'operational' },
-    },
+    ...responseData,
     memory: {
       rss: Math.round(memUsage.rss / 1024 / 1024),
       heapUsed: Math.round(memUsage.heapUsed / 1024 / 1024),
@@ -181,9 +205,6 @@ export async function GET(req: NextRequest) {
     },
     stats,
     endpoints,
-    uptimePercent,
-    uptimeHistory: uptimeLog.slice(-60),
-    visitor: { ip, userAgent },
     nodeVersion: process.version,
     platform: process.platform,
   });
