@@ -2,7 +2,9 @@
 
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect } from 'react';
+import gsap from 'gsap';
+import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import {
   IconLedger, IconCloud, IconLock, IconDashboard, IconSearch, IconShield,
   IconExport, IconReturn, IconZap, IconBell, IconSettings, IconArrowRight, IconChevronDown
@@ -15,43 +17,94 @@ const ThreeScene = dynamic(() => import('@/components/landing/ThreeScene'), {
 
 export default function LandingPage() {
   const router = useRouter();
-  const [scrollY, setScrollY] = useState(0);
-  const heroRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const handleScroll = () => setScrollY(window.scrollY);
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
+    gsap.registerPlugin(ScrollTrigger);
+
+    /* ─── Hero entrance timeline ─── */
+    gsap.set('.landing__content', { opacity: 1 });
+    gsap.set([
+      '.landing__logo-entrance', '.landing__title', '.landing__full-name',
+      '.landing__subtitle', '.landing__cta-wrap', '.landing__status-btn', '.landing__scroll-hint'
+    ], { opacity: 0, y: 30 });
+
+    const heroTl = gsap.timeline();
+    heroTl
+      .to('.landing__logo-entrance', { opacity: 1, y: 0, duration: 1, ease: 'power3.out' }, 0.5)
+      .to('.landing__title', { opacity: 1, y: 0, duration: 0.7, ease: 'power3.out' }, 0.8)
+      .to('.landing__full-name', { opacity: 1, y: 0, duration: 0.5, ease: 'power2.out' }, 1.1)
+      .to('.landing__subtitle', { opacity: 1, y: 0, duration: 0.5, ease: 'power2.out' }, 1.3)
+      .to('.landing__cta-wrap', { opacity: 1, y: 0, duration: 0.5, ease: 'back.out(1.5)' }, 1.5)
+      .to('.landing__status-btn', { opacity: 1, y: 0, duration: 0.4, ease: 'power2.out' }, 1.7)
+      .to('.landing__scroll-hint', { opacity: 1, y: 0, duration: 0.4, ease: 'power2.out' }, 2.0);
+
+    /* ─── Scroll-triggered section reveals ─── */
+    const sections = gsap.utils.toArray<HTMLElement>('.landing-section');
+    sections.forEach((section) => {
+      const badge = section.querySelector('.landing-section__badge');
+      const title = section.querySelector('.landing-section__title');
+      const desc = section.querySelector('.landing-section__desc');
+
+      if (badge) gsap.fromTo(badge, { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.5, ease: 'power2.out', scrollTrigger: { trigger: section, start: 'top 82%' } });
+      if (title) gsap.fromTo(title, { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.6, ease: 'power2.out', scrollTrigger: { trigger: section, start: 'top 80%' } });
+      if (desc)  gsap.fromTo(desc,  { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.5, ease: 'power2.out', scrollTrigger: { trigger: section, start: 'top 78%' } });
+    });
+
+    /* ─── Cards stagger ─── */
+    gsap.utils.toArray<HTMLElement>('.highlight-card').forEach((el, i) => {
+      gsap.fromTo(el, { opacity: 0, y: 40 }, { opacity: 1, y: 0, duration: 0.6, delay: i * 0.1, ease: 'power2.out', scrollTrigger: { trigger: el, start: 'top 88%' } });
+    });
+
+    gsap.utils.toArray<HTMLElement>('.step').forEach((el, i) => {
+      gsap.fromTo(el, { opacity: 0, x: -30 }, { opacity: 1, x: 0, duration: 0.6, delay: i * 0.12, ease: 'power2.out', scrollTrigger: { trigger: el, start: 'top 88%' } });
+    });
+
+    gsap.utils.toArray<HTMLElement>('.feature-card').forEach((el, i) => {
+      gsap.fromTo(el, { opacity: 0, y: 30, scale: 0.95 }, { opacity: 1, y: 0, scale: 1, duration: 0.5, delay: i * 0.06, ease: 'power2.out', scrollTrigger: { trigger: el, start: 'top 90%' } });
+    });
+
+    gsap.utils.toArray<HTMLElement>('.tech-card').forEach((el, i) => {
+      gsap.fromTo(el, { opacity: 0, scale: 0.85 }, { opacity: 1, scale: 1, duration: 0.4, delay: i * 0.05, ease: 'back.out(1.5)', scrollTrigger: { trigger: el, start: 'top 90%' } });
+    });
+
+    return () => {
+      heroTl.kill();
+      ScrollTrigger.getAll().forEach(t => t.kill());
+    };
   }, []);
 
   return (
     <div className="landing-page">
       {/* ─── HERO SECTION ─── */}
-      <section className="landing" ref={heroRef}>
+      <section className="landing">
         <ThreeScene />
         <div className="landing__overlay" />
         <div className="landing__content">
-          <div className="landing__logo-wrap">
-            <img
-              src="/SGA.png"
-              alt="SGALA Logo"
-              className="landing__logo"
-            />
+          <div className="landing__logo-entrance">
+            <div className="landing__logo-wrap">
+              <img
+                src="/SGA.png"
+                alt="SGALA Logo"
+                className="landing__logo"
+              />
+            </div>
           </div>
           <h1 className="landing__title">SGALA</h1>
           <p className="landing__full-name">Shree Ganpati Agency Ledger Audit System</p>
           <p className="landing__subtitle">
             Secure Digital Bahi-Khata for Hardware & Bath Fittings
           </p>
-          <button
-            className="landing__cta"
-            onClick={() => router.push('/login')}
-          >
-            <span>Enter System</span>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M5 12h14M12 5l7 7-7 7"/>
-            </svg>
-          </button>
+          <div className="landing__cta-wrap">
+            <button
+              className="landing__cta"
+              onClick={() => router.push('/login')}
+            >
+              <span>Enter System</span>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M5 12h14M12 5l7 7-7 7"/>
+              </svg>
+            </button>
+          </div>
           <button
             className="landing__status-btn"
             onClick={() => router.push('/status')}
@@ -217,15 +270,27 @@ export default function LandingPage() {
             </div>
             <div className="tech-card">
               <div className="tech-card__name">Three.js</div>
-              <div className="tech-card__role">3D Landing Page</div>
+              <div className="tech-card__role">3D Experience</div>
             </div>
             <div className="tech-card">
-              <div className="tech-card__name">JWT Auth</div>
-              <div className="tech-card__role">Secure Sessions</div>
+              <div className="tech-card__name">GSAP</div>
+              <div className="tech-card__role">Animations</div>
             </div>
             <div className="tech-card">
-              <div className="tech-card__name">bcrypt</div>
-              <div className="tech-card__role">Password Hashing</div>
+              <div className="tech-card__name">Firebase</div>
+              <div className="tech-card__role">Cloud Database</div>
+            </div>
+            <div className="tech-card">
+              <div className="tech-card__name">MongoDB Atlas</div>
+              <div className="tech-card__role">Monitoring DB</div>
+            </div>
+            <div className="tech-card">
+              <div className="tech-card__name">Upstash Redis</div>
+              <div className="tech-card__role">Cache Layer</div>
+            </div>
+            <div className="tech-card">
+              <div className="tech-card__name">JWT + bcrypt</div>
+              <div className="tech-card__role">Auth &amp; Security</div>
             </div>
             <div className="tech-card">
               <div className="tech-card__name">Vercel</div>
@@ -238,6 +303,10 @@ export default function LandingPage() {
             <div className="tech-card">
               <div className="tech-card__name">XLSX</div>
               <div className="tech-card__role">Excel Export</div>
+            </div>
+            <div className="tech-card">
+              <div className="tech-card__name">TypeScript</div>
+              <div className="tech-card__role">Type Safety</div>
             </div>
           </div>
         </div>
@@ -282,7 +351,7 @@ export default function LandingPage() {
             <span>System Status</span>
           </button>
           <div className="landing-footer__copy">
-            © {new Date().getFullYear()} Shree Ganpati Agency. All rights reserved.
+            &copy; {new Date().getFullYear()} Shree Ganpati Agency. All rights reserved.
           </div>
         </div>
       </footer>
