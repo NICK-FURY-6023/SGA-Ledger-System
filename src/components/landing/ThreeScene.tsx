@@ -8,7 +8,7 @@ import * as THREE from 'three';
 /* Deep-space starfield */
 function Starfield() {
   const ref = useRef<THREE.Points>(null!);
-  const count = 5000;
+  const count = 2000;
   const positions = useMemo(() => {
     const pos = new Float32Array(count * 3);
     for (let i = 0; i < count; i++) {
@@ -36,7 +36,7 @@ function Starfield() {
 /* Main blue particle cloud */
 function BlueParticles() {
   const ref = useRef<THREE.Points>(null!);
-  const count = 4000;
+  const count = 1500;
   const positions = useMemo(() => {
     const pos = new Float32Array(count * 3);
     for (let i = 0; i < count; i++) {
@@ -64,7 +64,7 @@ function BlueParticles() {
 /* Orange accent particles */
 function OrangeParticles() {
   const ref = useRef<THREE.Points>(null!);
-  const count = 1500;
+  const count = 600;
   const positions = useMemo(() => {
     const pos = new Float32Array(count * 3);
     for (let i = 0; i < count; i++) {
@@ -106,7 +106,7 @@ function OrbitalRing({ radius, color, speed, tiltX, tiltY, thickness, opacity }:
 
   return (
     <mesh ref={ref}>
-      <torusGeometry args={[radius, thickness, 32, 200]} />
+      <torusGeometry args={[radius, thickness, 16, 100]} />
       <meshBasicMaterial color={color} transparent opacity={opacity} />
     </mesh>
   );
@@ -140,7 +140,7 @@ function GridFloor() {
   const geo = useMemo(() => {
     const pts: THREE.Vector3[] = [];
     const s = 15;
-    const d = 30;
+    const d = 20;
     const step = (s * 2) / d;
     for (let i = 0; i <= d; i++) {
       const p = -s + i * step;
@@ -207,8 +207,8 @@ export default function ThreeScene() {
     <div className="landing__canvas">
       <Canvas
         camera={{ position: [0, 0, 6], fov: 60 }}
-        dpr={[1, 1.5]}
-        gl={{ antialias: true, alpha: true }}
+        dpr={[1, 1.2]}
+        gl={{ antialias: false, alpha: true, powerPreference: 'high-performance' }}
         style={{ background: '#000' }}
       >
         <ambientLight intensity={0.15} />
@@ -225,8 +225,6 @@ export default function ThreeScene() {
         <FloatingShape position={[-3.5, 2, -2]} color="#0066FF" speed={0.4} size={0.3} />
         <FloatingShape position={[4, -1, -3]} color="#FF8C00" speed={0.3} size={0.25} />
         <FloatingShape position={[-2.5, -2.5, -1]} color="#1E90FF" speed={0.5} size={0.2} />
-        <FloatingShape position={[2.5, 3, -4]} color="#FF6600" speed={0.35} size={0.22} />
-        <FloatingShape position={[0, -3, -5]} color="#0088FF" speed={0.28} size={0.18} />
 
         <GridFloor />
         <GlowCore />

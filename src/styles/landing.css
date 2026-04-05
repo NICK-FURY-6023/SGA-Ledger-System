@@ -45,7 +45,6 @@
   z-index: 2;
   text-align: center;
   padding: 2rem;
-  opacity: 0; /* GSAP animates this to 1 */
 }
 
 .landing__logo-entrance {
@@ -175,11 +174,12 @@
   background: #00C853;
   box-shadow: 0 0 8px rgba(0, 200, 83, 0.6);
   animation: statusDotPulse 2s ease-in-out infinite;
+  position: relative;
 }
 
 @keyframes statusDotPulse {
-  0%, 100% { opacity: 1; box-shadow: 0 0 8px rgba(0, 200, 83, 0.6); }
-  50% { opacity: 0.5; box-shadow: 0 0 4px rgba(0, 200, 83, 0.3); }
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.85); }
 }
 
 /* Scroll hint */

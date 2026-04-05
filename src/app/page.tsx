@@ -1,6 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import gsap from 'gsap';
@@ -22,21 +23,20 @@ export default function LandingPage() {
     gsap.registerPlugin(ScrollTrigger);
 
     /* ─── Hero entrance timeline ─── */
-    gsap.set('.landing__content', { opacity: 1 });
+    /* Title stays visible for LCP; only animate secondary elements */
     gsap.set([
-      '.landing__logo-entrance', '.landing__title', '.landing__full-name',
+      '.landing__logo-entrance', '.landing__full-name',
       '.landing__subtitle', '.landing__cta-wrap', '.landing__status-btn', '.landing__scroll-hint'
     ], { opacity: 0, y: 30 });
 
     const heroTl = gsap.timeline();
     heroTl
-      .to('.landing__logo-entrance', { opacity: 1, y: 0, duration: 1, ease: 'power3.out' }, 0.5)
-      .to('.landing__title', { opacity: 1, y: 0, duration: 0.7, ease: 'power3.out' }, 0.8)
-      .to('.landing__full-name', { opacity: 1, y: 0, duration: 0.5, ease: 'power2.out' }, 1.1)
-      .to('.landing__subtitle', { opacity: 1, y: 0, duration: 0.5, ease: 'power2.out' }, 1.3)
-      .to('.landing__cta-wrap', { opacity: 1, y: 0, duration: 0.5, ease: 'back.out(1.5)' }, 1.5)
-      .to('.landing__status-btn', { opacity: 1, y: 0, duration: 0.4, ease: 'power2.out' }, 1.7)
-      .to('.landing__scroll-hint', { opacity: 1, y: 0, duration: 0.4, ease: 'power2.out' }, 2.0);
+      .to('.landing__logo-entrance', { opacity: 1, y: 0, duration: 1, ease: 'power3.out' }, 0.3)
+      .to('.landing__full-name', { opacity: 1, y: 0, duration: 0.5, ease: 'power2.out' }, 0.7)
+      .to('.landing__subtitle', { opacity: 1, y: 0, duration: 0.5, ease: 'power2.out' }, 0.9)
+      .to('.landing__cta-wrap', { opacity: 1, y: 0, duration: 0.5, ease: 'back.out(1.5)' }, 1.1)
+      .to('.landing__status-btn', { opacity: 1, y: 0, duration: 0.4, ease: 'power2.out' }, 1.3)
+      .to('.landing__scroll-hint', { opacity: 1, y: 0, duration: 0.4, ease: 'power2.out' }, 1.6);
 
     /* ─── Scroll-triggered section reveals ─── */
     const sections = gsap.utils.toArray<HTMLElement>('.landing-section');
@@ -82,10 +82,13 @@ export default function LandingPage() {
         <div className="landing__content">
           <div className="landing__logo-entrance">
             <div className="landing__logo-wrap">
-              <img
+              <Image
                 src="/SGA.png"
                 alt="SGALA Logo"
+                width={180}
+                height={180}
                 className="landing__logo"
+                priority
               />
             </div>
           </div>
@@ -337,7 +340,7 @@ export default function LandingPage() {
       <footer className="landing-footer">
         <div className="landing-footer__inner">
           <div className="landing-footer__brand">
-            <img src="/SGA.png" alt="SGALA" className="landing-footer__logo" />
+            <Image src="/SGA.png" alt="SGALA" width={40} height={40} className="landing-footer__logo" />
             <div>
               <div className="landing-footer__name">SGALA</div>
               <div className="landing-footer__tagline">Shree Ganpati Agency Ledger Audit System</div>
