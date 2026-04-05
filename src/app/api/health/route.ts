@@ -3,10 +3,46 @@ import { isFirebaseConfigured, getDb } from '@/lib/server/firebase';
 import { getSystemStats } from '@/lib/server/db';
 
 const startTime = Date.now();
-
-// Store uptime history on server side for persistence across page loads
-const uptimeLog: { time: string; status: 'up' | 'down' | 'degraded'; latency: number; checkedAt: number }[] = [];
 const MAX_UPTIME_LOG = 90;
+
+// Load uptime history from Firestore (persistent across cold starts)
+async function loadUptimeHistory(): Promise<{ time: string; status: 'up' | 'down' | 'degraded'; latency: number; checkedAt: number }[]> {
+  if (isFirebaseConfigured() && getDb()) {
+    try {
+      const db = getDb()!;
+      const snap = await db.collection('uptime_history')
+        .orderBy('checkedAt', 'desc')
+        .limit(MAX_UPTIME_LOG)
+        .get();
+      const entries = snap.docs.map(d => d.data() as { time: string; status: 'up' | 'down' | 'degraded'; latency: number; checkedAt: number });
+      return entries.reverse();
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
+
+// Save a single uptime entry to Firestore
+async function saveUptimeEntry(entry: { time: string; status: 'up' | 'down' | 'degraded'; latency: number; checkedAt: number }) {
+  if (isFirebaseConfigured() && getDb()) {
+    try {
+      const db = getDb()!;
+      await db.collection('uptime_history').add(entry);
+
+      // Cleanup: keep only last MAX_UPTIME_LOG entries
+      const countSnap = await db.collection('uptime_history').orderBy('checkedAt', 'asc').get();
+      if (countSnap.size > MAX_UPTIME_LOG) {
+        const toDelete = countSnap.docs.slice(0, countSnap.size - MAX_UPTIME_LOG);
+        const batch = db.batch();
+        toDelete.forEach(doc => batch.delete(doc.ref));
+        await batch.commit();
+      }
+    } catch (err) {
+      console.error('[SGALA] Failed to save uptime entry:', err);
+    }
+  }
+}
 
 export async function GET(req: NextRequest) {
   const url = new URL(req.url);
@@ -28,7 +64,7 @@ export async function GET(req: NextRequest) {
     startedAt: new Date(startTime).toISOString(),
   };
 
-  // DB health check (used for both basic and detailed)
+  // DB health check
   let dbLatency = -1;
   let dbStatus = 'unknown';
   try {
@@ -45,18 +81,21 @@ export async function GET(req: NextRequest) {
     dbStatus = 'error';
   }
 
-  // Log this check to server-side uptime history
+  // Create uptime entry and save to Firestore
   const entryStatus: 'up' | 'down' | 'degraded' =
     dbStatus === 'error' ? 'down' : dbLatency > 500 ? 'degraded' : 'up';
-  uptimeLog.push({
+  const newEntry = {
     time: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }),
     status: entryStatus,
     latency: dbLatency,
     checkedAt: Date.now(),
-  });
-  if (uptimeLog.length > MAX_UPTIME_LOG) uptimeLog.splice(0, uptimeLog.length - MAX_UPTIME_LOG);
+  };
+  await saveUptimeEntry(newEntry);
 
-  // Uptime percentage from server log
+  // Load full history from Firestore (persistent!)
+  const uptimeLog = await loadUptimeHistory();
+
+  // Uptime percentage from persistent log
   const checksUp = uptimeLog.filter(u => u.status === 'up').length;
   const uptimePercent = uptimeLog.length > 0 ? Math.round((checksUp / uptimeLog.length) * 100) : 100;
 

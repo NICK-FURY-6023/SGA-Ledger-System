@@ -59,40 +59,98 @@ interface DeviceInfo {
 
 /* ─── Device Detection Utility ─── */
 function detectDevice(ua: string): DeviceInfo {
-  // Browser detection
+  // Try modern User-Agent Client Hints API first (Chrome 90+)
   let browser = 'Unknown';
-  if (ua.includes('Firefox/')) browser = 'Firefox ' + (ua.match(/Firefox\/([\d.]+)/)?.[1] || '');
-  else if (ua.includes('Edg/')) browser = 'Edge ' + (ua.match(/Edg\/([\d.]+)/)?.[1] || '');
-  else if (ua.includes('Chrome/')) browser = 'Chrome ' + (ua.match(/Chrome\/([\d.]+)/)?.[1] || '');
-  else if (ua.includes('Safari/') && !ua.includes('Chrome')) browser = 'Safari ' + (ua.match(/Version\/([\d.]+)/)?.[1] || '');
-
-  // OS detection
   let os = 'Unknown';
-  if (ua.includes('Windows NT 10')) os = 'Windows 10/11';
-  else if (ua.includes('Windows NT')) os = 'Windows';
-  else if (ua.includes('Mac OS X')) os = 'macOS ' + (ua.match(/Mac OS X ([\d_]+)/)?.[1]?.replace(/_/g, '.') || '');
-  else if (ua.includes('Android')) os = 'Android ' + (ua.match(/Android ([\d.]+)/)?.[1] || '');
-  else if (ua.includes('iPhone') || ua.includes('iPad')) os = 'iOS ' + (ua.match(/OS ([\d_]+)/)?.[1]?.replace(/_/g, '.') || '');
-  else if (ua.includes('Linux')) os = 'Linux';
-
-  // Device type
   let device = 'Desktop';
-  if (/Mobi|Android.*Mobile|iPhone/.test(ua)) device = 'Mobile';
-  else if (/iPad|Android(?!.*Mobile)|Tablet/.test(ua)) device = 'Tablet';
+  let isMobileHint = false;
 
-  // Client-side info
-  const screenRes = typeof window !== 'undefined' ? `${window.screen.width}x${window.screen.height}` : '—';
-  const language = typeof navigator !== 'undefined' ? navigator.language : '—';
+  if (typeof navigator !== 'undefined' && 'userAgentData' in navigator) {
+    const uaData = (navigator as any).userAgentData;
+    if (uaData) {
+      // Brand detection from client hints
+      const brands = uaData.brands || [];
+      const chromeBrand = brands.find((b: any) => b.brand === 'Google Chrome' || b.brand === 'Chromium');
+      const edgeBrand = brands.find((b: any) => b.brand === 'Microsoft Edge');
+      const operaBrand = brands.find((b: any) => b.brand === 'Opera');
+
+      if (edgeBrand) browser = `Edge ${edgeBrand.version}`;
+      else if (operaBrand) browser = `Opera ${operaBrand.version}`;
+      else if (chromeBrand) browser = `Chrome ${chromeBrand.version}`;
+
+      if (uaData.platform) {
+        const plat = uaData.platform;
+        if (plat === 'Windows') os = 'Windows';
+        else if (plat === 'macOS') os = 'macOS';
+        else if (plat === 'Android') os = 'Android';
+        else if (plat === 'iOS') os = 'iOS';
+        else if (plat === 'Linux') os = 'Linux';
+        else if (plat === 'Chrome OS') os = 'ChromeOS';
+        else os = plat;
+      }
+
+      isMobileHint = uaData.mobile === true;
+      if (isMobileHint) device = 'Mobile';
+    }
+  }
+
+  // Fallback: classic User-Agent string parsing
+  if (browser === 'Unknown') {
+    if (ua.includes('Firefox/')) browser = 'Firefox ' + (ua.match(/Firefox\/([\d.]+)/)?.[1] || '');
+    else if (ua.includes('OPR/') || ua.includes('Opera/')) browser = 'Opera ' + (ua.match(/OPR\/([\d.]+)/)?.[1] || ua.match(/Opera\/([\d.]+)/)?.[1] || '');
+    else if (ua.includes('Edg/')) browser = 'Edge ' + (ua.match(/Edg\/([\d.]+)/)?.[1] || '');
+    else if (ua.includes('SamsungBrowser/')) browser = 'Samsung Browser ' + (ua.match(/SamsungBrowser\/([\d.]+)/)?.[1] || '');
+    else if (ua.includes('UCBrowser/')) browser = 'UC Browser ' + (ua.match(/UCBrowser\/([\d.]+)/)?.[1] || '');
+    else if (ua.includes('Chrome/') && !ua.includes('Edg/')) browser = 'Chrome ' + (ua.match(/Chrome\/([\d.]+)/)?.[1] || '');
+    else if (ua.includes('Safari/') && !ua.includes('Chrome') && !ua.includes('Chromium')) browser = 'Safari ' + (ua.match(/Version\/([\d.]+)/)?.[1] || '');
+    else if (ua.includes('MSIE') || ua.includes('Trident/')) browser = 'Internet Explorer';
+  }
+
+  if (os === 'Unknown') {
+    if (ua.includes('Windows NT 10')) os = 'Windows 10/11';
+    else if (ua.includes('Windows NT 6.3')) os = 'Windows 8.1';
+    else if (ua.includes('Windows NT 6.1')) os = 'Windows 7';
+    else if (ua.includes('Windows NT')) os = 'Windows';
+    else if (ua.includes('Mac OS X')) {
+      const ver = ua.match(/Mac OS X ([\d_]+)/)?.[1]?.replace(/_/g, '.') || '';
+      os = ver ? `macOS ${ver}` : 'macOS';
+    }
+    else if (ua.includes('CrOS')) os = 'ChromeOS';
+    else if (ua.includes('Android')) os = 'Android ' + (ua.match(/Android ([\d.]+)/)?.[1] || '');
+    else if (ua.includes('iPhone') || ua.includes('iPad')) os = 'iOS ' + (ua.match(/OS ([\d_]+)/)?.[1]?.replace(/_/g, '.') || '');
+    else if (ua.includes('Linux')) os = 'Linux';
+  }
+
+  // Device type detection
+  if (!isMobileHint) {
+    if (/Mobi|Android.*Mobile|iPhone|iPod|BlackBerry|IEMobile|Opera Mini/.test(ua)) device = 'Mobile';
+    else if (/iPad|Android(?!.*Mobile)|Tablet|PlayBook|Silk/.test(ua)) device = 'Tablet';
+  }
+
+  // Client-side info (real values from browser APIs)
+  const screenRes = typeof window !== 'undefined'
+    ? `${window.screen.width}x${window.screen.height} @ ${window.devicePixelRatio || 1}x`
+    : '\u2014';
+  const language = typeof navigator !== 'undefined' ? navigator.language : '\u2014';
   const cores = typeof navigator !== 'undefined' ? navigator.hardwareConcurrency || 0 : 0;
   const memory = typeof navigator !== 'undefined' && 'deviceMemory' in navigator
-    ? `${(navigator as any).deviceMemory}GB` : '—';
+    ? `${(navigator as any).deviceMemory} GB` : '\u2014';
   const touchScreen = typeof navigator !== 'undefined' ? navigator.maxTouchPoints > 0 : false;
+  const onLine = typeof navigator !== 'undefined' ? navigator.onLine : true;
 
-  let connection = '—';
+  let connection = '\u2014';
   if (typeof navigator !== 'undefined' && 'connection' in navigator) {
     const conn = (navigator as any).connection;
-    if (conn) connection = `${conn.effectiveType || '—'} (${conn.downlink || '—'} Mbps)`;
+    if (conn) {
+      const type = conn.effectiveType || '\u2014';
+      const downlink = conn.downlink ? `${conn.downlink} Mbps` : '';
+      const rtt = conn.rtt ? `${conn.rtt}ms RTT` : '';
+      const parts = [type, downlink, rtt].filter(Boolean);
+      connection = parts.join(' / ');
+    }
   }
+
+  if (!onLine) connection = 'Offline';
 
   return { browser, os, device, screenRes, language, connection, cores, memory, touchScreen };
 }
@@ -611,7 +669,7 @@ export default function StatusPage() {
               Each check pings the API server, tests database connectivity and measures response latency.
             </p>
             <p style={{ margin: 0 }}>
-              Uptime history is maintained server-side and persists across page reloads (up to 90 checks).
+              Uptime history is stored in Firestore and persists across server restarts and deployments (up to 90 checks).
               Each service displays a horizontal bar of color-coded segments. Hover any segment for exact timing.
               Green = fast (&lt;100ms), Yellow-Green = normal, Orange = degraded (&gt;300ms), Red = down.
             </p>
