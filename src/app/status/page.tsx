@@ -27,6 +27,7 @@ interface HealthData {
   services: {
     api: ServiceStatus;
     database: ServiceStatus;
+    mongodb: ServiceStatus;
     cache: ServiceStatus;
     auth: ServiceStatus;
     audit: ServiceStatus;
@@ -223,6 +224,12 @@ const SvgZap = ({ size = 16, color = 'currentColor' }: { size?: number; color?: 
   </svg>
 );
 
+const SvgLeaf = ({ size = 16, color = 'currentColor' }: { size?: number; color?: string }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M11 20A7 7 0 0 1 9.8 6.9C15.5 4.9 17 3.5 19 2c1 2 2 4.5 2 8 0 5.5-4.78 10-10 10z"/><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/>
+  </svg>
+);
+
 const SvgShield = ({ size = 16, color = 'currentColor' }: { size?: number; color?: string }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
@@ -352,7 +359,8 @@ export default function StatusPage() {
 
   const services = health ? [
     { key: 'api', name: 'API Server', icon: <SvgGlobe size={20} />, status: health.services.api.status, detail: `Uptime: ${formatUptime(health.uptime)}` },
-    { key: 'database', name: 'Database', icon: <SvgDatabase size={20} />, status: health.services.database.status, detail: `${health.services.database.type} — ${health.services.database.latency}ms latency` },
+    { key: 'database', name: 'Firestore', icon: <SvgDatabase size={20} />, status: health.services.database.status, detail: `${health.services.database.type} — ${health.services.database.latency}ms latency` },
+    { key: 'mongodb', name: 'MongoDB Atlas', icon: <SvgLeaf size={20} />, status: health.services.mongodb?.status || 'not-configured', detail: (health.services.mongodb?.latency ?? -1) >= 0 ? `Status store — ${health.services.mongodb?.latency}ms latency` : 'Status store — not configured' },
     { key: 'cache', name: 'Redis Cache', icon: <SvgZap size={20} />, status: health.services.cache?.status || 'not-configured', detail: (health.services.cache?.latency ?? -1) >= 0 ? `Upstash Redis — ${health.services.cache?.latency}ms latency` : 'Upstash Redis — not configured' },
     { key: 'auth', name: 'Authentication', icon: <SvgShield size={20} />, status: health.services.auth.status, detail: 'JWT + bcrypt sessions' },
     { key: 'audit', name: 'Audit System', icon: <SvgActivity size={20} />, status: health.services.audit.status, detail: 'Event logging active' },

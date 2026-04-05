@@ -1,20 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { isFirebaseConfigured, getDb } from '@/lib/server/firebase';
 import { getSystemStats } from '@/lib/server/db';
-import { isUpstashConfigured, getRedis, loadUptimeFromRedis, saveUptimeToRedis, UptimeEntry } from '@/lib/server/upstash';
+import { isUpstashConfigured, getRedis } from '@/lib/server/upstash';
+import { isMongoConfigured, pingMongo, loadUptimeFromMongo, saveUptimeToMongo, UptimeEntry } from '@/lib/server/mongodb';
 
 const startTime = Date.now();
 
-// Uptime storage: Upstash Redis (primary) → Firestore (fallback)
-// Upstash free tier: 10K commands/day — uptime uses ~6K/day at 30s interval
-// This keeps Firestore free for ledger data only
+// Architecture:
+// MongoDB Atlas (free) → Status/uptime data (persistent, unlimited history)
+// Firestore → Ledger/business data only
+// Upstash Redis → Caching layer (speeds up reads)
 
 async function loadUptimeHistory(): Promise<UptimeEntry[]> {
-  // Primary: Upstash Redis
-  if (isUpstashConfigured()) {
-    return loadUptimeFromRedis();
+  // Primary: MongoDB Atlas
+  if (isMongoConfigured()) {
+    return loadUptimeFromMongo();
   }
-  // Fallback: Firestore (if Redis not configured yet)
+  // Fallback: Firestore (if MongoDB not configured yet)
   if (isFirebaseConfigured() && getDb()) {
     try {
       const db = getDb()!;
@@ -32,12 +34,12 @@ async function loadUptimeHistory(): Promise<UptimeEntry[]> {
 }
 
 async function saveUptimeEntry(entry: UptimeEntry) {
-  // Primary: Upstash Redis
-  if (isUpstashConfigured()) {
-    await saveUptimeToRedis(entry);
+  // Primary: MongoDB Atlas
+  if (isMongoConfigured()) {
+    await saveUptimeToMongo(entry);
     return;
   }
-  // Fallback: Firestore (if Redis not configured yet)
+  // Fallback: Firestore (if MongoDB not configured yet)
   if (isFirebaseConfigured() && getDb()) {
     try {
       await getDb()!.collection('uptime_history').add(entry);
@@ -101,7 +103,19 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  // Create uptime entry and save to Firestore
+  // MongoDB health check (status data store)
+  let mongoLatency = -1;
+  let mongoStatus = 'not-configured';
+  if (isMongoConfigured()) {
+    try {
+      mongoLatency = await pingMongo();
+      mongoStatus = mongoLatency >= 0 ? 'connected' : 'error';
+    } catch {
+      mongoStatus = 'error';
+    }
+  }
+
+  // Create uptime entry and save
   const entryStatus: 'up' | 'down' | 'degraded' =
     dbStatus === 'error' ? 'down' : dbLatency > 500 ? 'degraded' : 'up';
   const newEntry = {
@@ -112,7 +126,7 @@ export async function GET(req: NextRequest) {
   };
   await saveUptimeEntry(newEntry);
 
-  // Load full history from Firestore (persistent!)
+  // Load full history (MongoDB primary, Firestore fallback)
   const uptimeLog = await loadUptimeHistory();
 
   // Uptime percentage from persistent log
@@ -125,6 +139,7 @@ export async function GET(req: NextRequest) {
       services: {
         api: { status: 'operational', uptime },
         database: { status: dbStatus, latency: dbLatency, type: base.database },
+        mongodb: { status: mongoStatus, latency: mongoLatency, type: 'mongodb-atlas' },
         cache: { status: redisStatus, latency: redisLatency, type: 'upstash-redis' },
         auth: { status: 'operational' },
         audit: { status: 'operational' },
@@ -153,6 +168,7 @@ export async function GET(req: NextRequest) {
     services: {
       api: { status: 'operational', uptime },
       database: { status: dbStatus, latency: dbLatency, type: base.database },
+      mongodb: { status: mongoStatus, latency: mongoLatency, type: 'mongodb-atlas' },
       cache: { status: redisStatus, latency: redisLatency, type: 'upstash-redis' },
       auth: { status: 'operational' },
       audit: { status: 'operational' },
