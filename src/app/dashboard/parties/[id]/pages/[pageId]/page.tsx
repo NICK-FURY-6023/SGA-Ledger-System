@@ -242,7 +242,7 @@ export default function PageLedgerView() {
     const dd = dt.getDate().toString().padStart(2, '0');
     const mm = (dt.getMonth() + 1).toString().padStart(2, '0');
     const yy = dt.getFullYear().toString().slice(-2);
-    return `${dd}/${mm}/${yy}`;
+    return `${dd}.${mm}.${yy}`;
   };
 
   return (
@@ -352,7 +352,7 @@ export default function PageLedgerView() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={isOpen ? 11 : 10} style={{ textAlign: 'center', padding: '3rem', color: '#8B7D5E' }}>
+                  <td colSpan={isOpen ? 11 : 10} style={{ textAlign: 'center', padding: '3rem', color: '#4A5D80' }}>
                     <div className="register__spinner" />
                     <div style={{ marginTop: '0.5rem' }}>Loading...</div>
                   </td>
@@ -391,13 +391,13 @@ export default function PageLedgerView() {
                         {debitAmt.rupees}
                       </td>
                       <td className="register__paise">
-                        {tx.debit > 0 ? debitAmt.paise : ''}
+                        {tx.debit > 0 ? `=${debitAmt.paise}` : ''}
                       </td>
                       <td className={`register__amount ${(tx.credit > 0 || tx.sr > 0) ? (tx.sr > 0 ? 'register__amount--sr' : 'register__amount--credit') : ''}`}>
                         {creditAmt.rupees}
                       </td>
                       <td className="register__paise">
-                        {(tx.credit > 0 || tx.sr > 0) ? creditAmt.paise : ''}
+                        {(tx.credit > 0 || tx.sr > 0) ? `=${creditAmt.paise}` : ''}
                       </td>
                       <td>
                         <span className={`register__type register__type--${tx.type}`}>{tx.type}</span>
@@ -405,7 +405,7 @@ export default function PageLedgerView() {
                       <td className={`register__balance ${tx.pageBalance < 0 ? 'register__balance--negative' : ''}`}>
                         {balAmt.rupees}
                       </td>
-                      <td className="register__paise">{balAmt.paise}</td>
+                      <td className="register__paise">{balAmt.paise ? `=${balAmt.paise}` : ''}</td>
                       {isOpen && (
                         <td className="register__row-actions">
                           <button
@@ -443,7 +443,7 @@ export default function PageLedgerView() {
               })()}
             </strong>
           </div>
-          <div style={{ fontSize: '0.75rem', color: '#8B7D5E' }}>
+          <div className="register__footer-lines">
             {transactions.length} / {maxLines} lines
           </div>
         </div>

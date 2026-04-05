@@ -1,5 +1,6 @@
 /* ================================================
    BAHI-KHATA REGISTER — Physical Register Replica
+   Matches: cream paper, blue ruled lines, left binding
    ================================================ */
 
 /* Register Container */
@@ -77,70 +78,89 @@
 
 /* ─── REGISTER PAPER ─── */
 .register__paper {
-  background: #FFFEF7;
-  border: 3px solid #8B7D5E;
+  background: #F8F4E8;
+  border: 2px solid #7A8EB0;
+  border-left: 8px solid #D4737B;
+  border-radius: 2px;
   box-shadow:
-    0 0 0 1px #D4C89A,
-    4px 4px 20px rgba(0, 0, 0, 0.3),
-    inset 0 0 80px rgba(212, 200, 154, 0.15);
+    4px 4px 16px rgba(0, 0, 0, 0.25),
+    inset 0 0 60px rgba(200, 190, 160, 0.2);
   overflow: hidden;
+  position: relative;
 }
 
-/* ─── HEADER (like image: LEDGER / खाता) ─── */
+/* Red margin line (like physical register binding) */
+.register__paper::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 3px;
+  background: #C0545E;
+  z-index: 2;
+}
+
+/* ─── HEADER (matching physical image exactly) ─── */
 .register__header {
-  background: linear-gradient(180deg, #2C2416, #1A150D);
-  padding: 16px 24px;
-  border-bottom: 3px solid #5C4F3A;
+  background: #F2ECDA;
+  padding: 14px 20px 14px 24px;
+  border-bottom: 2px solid #4A5D80;
   display: grid;
   grid-template-columns: 1fr auto;
-  gap: 12px;
+  gap: 8px;
 }
 
 .register__header-title {
   font-family: 'Georgia', 'Times New Roman', serif;
-  font-size: 1.4rem;
-  font-weight: 700;
-  color: #D4C89A;
-  letter-spacing: 2px;
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #1A2744;
+  letter-spacing: 3px;
   text-transform: uppercase;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
+  line-height: 1.2;
 }
 
 .register__header-hindi {
-  font-size: 1rem;
-  color: #B8A87A;
-  margin-left: 8px;
+  font-size: 1.15rem;
+  color: #3A4F78;
+  margin-left: 6px;
+  font-weight: 700;
+  letter-spacing: 0;
 }
 
 .register__header-info {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 4px 24px;
+  gap: 3px 20px;
 }
 
 .register__header-field {
   display: flex;
-  gap: 8px;
+  gap: 6px;
   align-items: baseline;
-  font-size: 0.82rem;
-  color: #B8A87A;
+  font-size: 0.8rem;
+  color: #3A4F78;
 }
 
 .register__header-label {
   white-space: nowrap;
   font-weight: 600;
+  font-size: 0.75rem;
 }
 
 .register__header-value {
-  color: #F5EED8;
+  color: #1A2744;
   font-weight: 700;
   font-size: 0.9rem;
-  border-bottom: 1px dotted #5C4F3A;
+  border-bottom: 1px solid #7A8EB0;
   flex: 1;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  padding-bottom: 1px;
 }
 
 .register__page-number {
@@ -148,22 +168,27 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-width: 100px;
+  min-width: 90px;
+  border: 2px solid #4A5D80;
+  border-radius: 4px;
+  padding: 6px 12px;
+  background: #FDFBF0;
 }
 
 .register__page-label {
-  font-size: 0.72rem;
-  color: #8B7D5E;
+  font-size: 0.68rem;
+  color: #4A5D80;
   text-transform: uppercase;
   letter-spacing: 1px;
-  margin-bottom: 4px;
+  font-weight: 600;
+  margin-bottom: 2px;
 }
 
 .register__page-num {
   font-family: 'Georgia', serif;
-  font-size: 2.5rem;
-  font-weight: 700;
-  color: #D4C89A;
+  font-size: 2.2rem;
+  font-weight: 800;
+  color: #1A2744;
   line-height: 1;
 }
 
@@ -180,43 +205,43 @@
 }
 
 /* Column widths matching physical register proportions */
-.register__table colgroup .col-date { width: 9%; }
-.register__table colgroup .col-particulars { width: 18%; }
-.register__table colgroup .col-folio { width: 6%; }
+.register__table colgroup .col-date { width: 8%; }
+.register__table colgroup .col-particulars { width: 16%; }
+.register__table colgroup .col-folio { width: 5%; }
 .register__table colgroup .col-debit-r { width: 11%; }
-.register__table colgroup .col-debit-p { width: 5%; }
+.register__table colgroup .col-debit-p { width: 4%; }
 .register__table colgroup .col-credit-r { width: 11%; }
-.register__table colgroup .col-credit-p { width: 5%; }
-.register__table colgroup .col-type { width: 7%; }
-.register__table colgroup .col-balance-r { width: 11%; }
-.register__table colgroup .col-balance-p { width: 5%; }
-.register__table colgroup .col-actions { width: 8%; }
+.register__table colgroup .col-credit-p { width: 4%; }
+.register__table colgroup .col-type { width: 5%; }
+.register__table colgroup .col-balance-r { width: 12%; }
+.register__table colgroup .col-balance-p { width: 4%; }
+.register__table colgroup .col-actions { width: 7%; }
 
-/* Column header (two rows: English + Hindi) */
+/* Column header — cream background with blue text like physical register */
 .register__table thead {
-  background: linear-gradient(180deg, #3D3223, #2C2416);
+  background: #E8E0C8;
 }
 
 .register__table thead tr:first-child th {
-  padding: 8px 6px 2px;
-  font-size: 0.72rem;
+  padding: 7px 4px 1px;
+  font-size: 0.74rem;
   font-weight: 700;
-  color: #D4C89A;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  border-right: 1px solid #5C4F3A;
+  color: #1A2744;
+  text-transform: none;
+  letter-spacing: 0.5px;
+  border-right: 1.5px solid #4A5D80;
   border-bottom: none;
   text-align: center;
   vertical-align: bottom;
 }
 
 .register__table thead tr:last-child th {
-  padding: 2px 6px 8px;
-  font-size: 0.68rem;
+  padding: 1px 4px 7px;
+  font-size: 0.7rem;
   font-weight: 600;
-  color: #8B7D5E;
-  border-right: 1px solid #5C4F3A;
-  border-bottom: 2px solid #5C4F3A;
+  color: #4A5D80;
+  border-right: 1.5px solid #4A5D80;
+  border-bottom: 2px solid #4A5D80;
   text-align: center;
   vertical-align: top;
 }
@@ -227,7 +252,7 @@
 
 /* Sub-header for Debit/Credit/Balance split */
 .register__th-group {
-  border-right: 1px solid #5C4F3A;
+  border-right: 1.5px solid #4A5D80;
 }
 
 .register__th-sub {
@@ -240,24 +265,24 @@
   flex: 1;
   text-align: center;
   font-size: 0.68rem;
-  padding: 2px 4px;
+  padding: 2px 3px;
 }
 
 .register__th-sub span:first-child {
-  border-right: 1px solid #5C4F3A;
+  border-right: 1px solid #7A8EB0;
 }
 
-/* Table body */
+/* ─── TABLE BODY ─── */
 .register__table td {
   padding: 0;
   font-size: 0.85rem;
-  color: #1A150D;
-  border-bottom: 1px solid #D4C89A;
-  border-right: 1px solid #D4C89A;
+  color: #1A1A2E;
+  border-bottom: 1px solid #A8B8D0;
+  border-right: 1.5px solid #A8B8D0;
   text-align: center;
   vertical-align: middle;
-  height: 32px;
-  line-height: 32px;
+  height: 30px;
+  line-height: 30px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -268,98 +293,109 @@
 }
 
 .register__table tbody tr {
-  background: #FFFEF7;
+  background: #F8F4E8;
 }
 
 .register__table tbody tr:nth-child(even) {
-  background: #FBF8EE;
+  background: #F3EEDD;
 }
 
 .register__table tbody tr:hover {
-  background: #F0E8D0;
+  background: #EDE5CC;
 }
 
+/* Empty rows — ruled notebook lines */
 .register__table tbody tr.register__row--empty {
-  background: #FFFEF7;
+  background: #F8F4E8;
 }
 .register__table tbody tr.register__row--empty:nth-child(even) {
-  background: #FBF8EE;
+  background: #F3EEDD;
 }
 .register__table tbody tr.register__row--empty:hover {
-  background: #FFFEF7;
+  background: #F8F4E8;
 }
 
-/* Amount cells */
+/* Amount cells — right-aligned with Indian rupee formatting */
 .register__amount {
   text-align: right !important;
-  padding-right: 8px !important;
+  padding-right: 4px !important;
   font-family: var(--font-mono);
   font-weight: 600;
   font-size: 0.82rem;
+  color: #1A1A2E;
 }
 
 .register__amount--debit {
-  color: #C62828;
+  color: #1A1A2E;
 }
 
 .register__amount--credit {
-  color: #2E7D32;
+  color: #1A1A2E;
 }
 
 .register__amount--sr {
   color: #1565C0;
 }
 
+/* Paise separator column — shows =XX format */
 .register__paise {
-  text-align: center !important;
+  text-align: left !important;
+  padding-left: 0 !important;
   font-family: var(--font-mono);
-  font-size: 0.75rem;
-  color: #8B7D5E;
+  font-size: 0.78rem;
+  color: #4A5D80;
+  border-left: 1px dashed #B8C4D8 !important;
 }
 
 /* Balance cell */
 .register__balance {
   text-align: right !important;
-  padding-right: 8px !important;
+  padding-right: 4px !important;
   font-family: var(--font-mono);
   font-weight: 700;
   font-size: 0.85rem;
-  color: #1A150D;
+  color: #1A1A2E;
 }
 
 .register__balance--negative {
   color: #C62828;
 }
 
-/* Type badge */
+/* Type badge — simple text like handwritten CIR/DIR/SR */
 .register__type {
-  font-size: 0.7rem;
+  font-size: 0.72rem;
   font-weight: 700;
-  letter-spacing: 0.5px;
-  font-family: var(--font-main);
+  letter-spacing: 0.3px;
+  font-family: var(--font-mono);
 }
 
-.register__type--CIR { color: #2E7D32; }
-.register__type--DIR { color: #C62828; }
+.register__type--CIR { color: #1A1A2E; }
+.register__type--DIR { color: #1A1A2E; }
 .register__type--SR { color: #1565C0; }
 
-/* Particulars & Date cells */
+/* Date cell */
 .register__cell-date {
   font-family: var(--font-mono);
   font-size: 0.78rem;
-  padding: 0 4px !important;
+  color: #1A1A2E;
+  padding: 0 3px !important;
 }
 
+/* Particulars (Bill/Challan number) */
 .register__cell-particulars {
   text-align: left !important;
-  padding-left: 8px !important;
+  padding-left: 6px !important;
   font-weight: 600;
   font-size: 0.82rem;
+  color: #1A1A2E;
+  text-transform: uppercase;
 }
 
+/* Folio cell */
 .register__cell-folio {
   font-size: 0.78rem;
-  color: #5C4F3A;
+  color: #3A4F78;
+  font-weight: 600;
 }
 
 /* Action buttons in rows */
@@ -372,7 +408,7 @@
 }
 
 .register__action-btn {
-  padding: 4px;
+  padding: 3px;
   border-radius: 3px;
   background: transparent;
   border: none;
@@ -383,16 +419,16 @@
   justify-content: center;
 }
 
-.register__action-btn--edit { color: #1565C0; }
-.register__action-btn--edit:hover { background: #E3F2FD; }
-.register__action-btn--delete { color: #C62828; }
-.register__action-btn--delete:hover { background: #FFEBEE; }
+.register__action-btn--edit { color: #2A5599; }
+.register__action-btn--edit:hover { background: #D6E4F5; }
+.register__action-btn--delete { color: #993333; }
+.register__action-btn--delete:hover { background: #F5D6D6; }
 
 /* ─── PAGE FOOTER ─── */
 .register__footer {
-  background: linear-gradient(180deg, #2C2416, #1A150D);
+  background: #E8E0C8;
   padding: 10px 24px;
-  border-top: 2px solid #5C4F3A;
+  border-top: 2px solid #4A5D80;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -400,14 +436,21 @@
 
 .register__footer-balance {
   font-family: 'Georgia', serif;
-  font-size: 0.9rem;
-  color: #D4C89A;
+  font-size: 0.92rem;
+  color: #3A4F78;
+  font-weight: 600;
 }
 
 .register__footer-balance strong {
-  font-size: 1.1rem;
-  color: #F5EED8;
+  font-size: 1.15rem;
+  color: #1A2744;
   margin-left: 8px;
+}
+
+.register__footer-lines {
+  font-size: 0.75rem;
+  color: #7A8EB0;
+  font-weight: 500;
 }
 
 /* ─── PAGE NAVIGATION ─── */
@@ -616,7 +659,7 @@
   display: inline-block;
   width: 24px;
   height: 24px;
-  border: 3px solid #D4C89A;
+  border: 3px solid #7A8EB0;
   border-top-color: transparent;
   border-radius: 50%;
   animation: register-spin 0.7s linear infinite;
@@ -683,6 +726,29 @@
   display: flex;
   gap: 0.75rem;
   justify-content: center;
+}
+
+/* ─── PRINT STYLES ─── */
+@media print {
+  .register__nav,
+  .register__page-nav,
+  .register__row-actions,
+  .register__action-btn,
+  .col-actions {
+    display: none !important;
+  }
+  .register__paper {
+    border: 1px solid #333;
+    box-shadow: none;
+    border-left: 6px solid #C0545E;
+  }
+  .register__table td,
+  .register__table th {
+    border-color: #666 !important;
+  }
+  body {
+    background: white !important;
+  }
 }
 
 /* ─── LEDGER (legacy class for global ledger page) ─── */
