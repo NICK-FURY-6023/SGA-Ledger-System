@@ -12,6 +12,7 @@
     "@opentelemetry/api": "^1.9.1",
     "@react-three/drei": "^9.96.0",
     "@react-three/fiber": "^8.15.0",
+    "@upstash/redis": "^1.37.0",
     "axios": "^1.6.0",
     "bcryptjs": "^3.0.3",
     "date-fns": "^3.3.0",

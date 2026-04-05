@@ -1,27 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { isFirebaseConfigured, getDb } from '@/lib/server/firebase';
 import { getSystemStats } from '@/lib/server/db';
+import { isUpstashConfigured, loadUptimeFromRedis, saveUptimeToRedis, UptimeEntry } from '@/lib/server/upstash';
 
 const startTime = Date.now();
 
-// 1000 entries ≈ 200KB — well within Firestore free tier (1GB storage, 50K reads/day)
-// At 30s interval: ~8.3 hours of history; at 60s: ~16.6 hours
-const MAX_UPTIME_LOG = 1000;
+// Uptime storage: Upstash Redis (primary) → Firestore (fallback)
+// Upstash free tier: 10K commands/day — uptime uses ~6K/day at 30s interval
+// This keeps Firestore free for ledger data only
 
-// Cleanup runs once every 50 writes to save Firestore read quota
-let writesSinceCleanup = 0;
-const CLEANUP_INTERVAL = 50;
-
-// Load uptime history from Firestore (persistent across cold starts & deploys)
-async function loadUptimeHistory(): Promise<{ time: string; status: 'up' | 'down' | 'degraded'; latency: number; checkedAt: number }[]> {
+async function loadUptimeHistory(): Promise<UptimeEntry[]> {
+  // Primary: Upstash Redis
+  if (isUpstashConfigured()) {
+    return loadUptimeFromRedis();
+  }
+  // Fallback: Firestore (if Redis not configured yet)
   if (isFirebaseConfigured() && getDb()) {
     try {
       const db = getDb()!;
       const snap = await db.collection('uptime_history')
         .orderBy('checkedAt', 'desc')
-        .limit(MAX_UPTIME_LOG)
+        .limit(1000)
         .get();
-      const entries = snap.docs.map(d => d.data() as { time: string; status: 'up' | 'down' | 'degraded'; latency: number; checkedAt: number });
+      const entries = snap.docs.map(d => d.data() as UptimeEntry);
       return entries.reverse();
     } catch {
       return [];
@@ -30,25 +31,16 @@ async function loadUptimeHistory(): Promise<{ time: string; status: 'up' | 'down
   return [];
 }
 
-// Save uptime entry to Firestore, cleanup only periodically
-async function saveUptimeEntry(entry: { time: string; status: 'up' | 'down' | 'degraded'; latency: number; checkedAt: number }) {
+async function saveUptimeEntry(entry: UptimeEntry) {
+  // Primary: Upstash Redis
+  if (isUpstashConfigured()) {
+    await saveUptimeToRedis(entry);
+    return;
+  }
+  // Fallback: Firestore (if Redis not configured yet)
   if (isFirebaseConfigured() && getDb()) {
     try {
-      const db = getDb()!;
-      await db.collection('uptime_history').add(entry);
-
-      writesSinceCleanup++;
-      if (writesSinceCleanup >= CLEANUP_INTERVAL) {
-        writesSinceCleanup = 0;
-        // Only count and delete when over limit
-        const countSnap = await db.collection('uptime_history').orderBy('checkedAt', 'asc').get();
-        if (countSnap.size > MAX_UPTIME_LOG) {
-          const toDelete = countSnap.docs.slice(0, countSnap.size - MAX_UPTIME_LOG);
-          const batch = db.batch();
-          toDelete.forEach(doc => batch.delete(doc.ref));
-          await batch.commit();
-        }
-      }
+      await getDb()!.collection('uptime_history').add(entry);
     } catch (err) {
       console.error('[SGALA] Failed to save uptime entry:', err);
     }
