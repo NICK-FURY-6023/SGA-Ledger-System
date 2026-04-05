@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { isFirebaseConfigured, getDb } from '@/lib/server/firebase';
 import { getSystemStats } from '@/lib/server/db';
 import { isUpstashConfigured, getRedis } from '@/lib/server/upstash';
-import { isMongoConfigured, pingMongo, loadUptimeFromMongo, saveUptimeToMongo, getUptimeStats, saveServiceStatuses, getServiceTimelines, UptimeEntry } from '@/lib/server/mongodb';
+import { isMongoConfigured, pingMongo, loadUptimeFromMongo, saveUptimeToMongo, getUptimeStats, saveServiceStatuses, getServiceTimelines, getServerStartTime, UptimeEntry } from '@/lib/server/mongodb';
 
-const startTime = Date.now();
+const coldStartTime = Date.now();
 
 // Architecture:
 // MongoDB Atlas (free) → Status/uptime data (persistent, unlimited history)
@@ -49,6 +49,10 @@ export async function GET(req: NextRequest) {
   const url = new URL(req.url);
   const detailed = url.searchParams.get('detailed') === 'true';
 
+  // Use persistent start time from MongoDB (survives cold starts / redeploys)
+  // Falls back to cold start time if MongoDB not configured
+  const persistentStart = isMongoConfigured() ? await getServerStartTime() : null;
+  const startTime = persistentStart || coldStartTime;
   const uptime = Math.floor((Date.now() - startTime) / 1000);
   const memUsage = process.memoryUsage();
 

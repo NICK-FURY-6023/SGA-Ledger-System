@@ -42,6 +42,24 @@ export async function pingMongo(): Promise<number> {
   return Date.now() - t0;
 }
 
+// Get or create the persistent server start time (survives cold starts)
+export async function getServerStartTime(): Promise<number | null> {
+  const database = await getMongo();
+  if (!database) return null;
+  try {
+    const col = database.collection('server_info');
+    const doc = await col.findOne({ key: 'deployment' });
+    if (doc) return doc.startedAt as number;
+    // First ever health check — record deployment time
+    const now = Date.now();
+    await col.insertOne({ key: 'deployment', startedAt: now, createdAt: new Date(now) });
+    return now;
+  } catch (err) {
+    console.error('[SGALA] MongoDB getServerStartTime error:', err);
+    return null;
+  }
+}
+
 // ─── UPTIME HISTORY ───
 
 export type UptimeEntry = {
