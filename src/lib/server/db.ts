@@ -2,6 +2,7 @@ import { v4 as uuidv4 } from 'uuid';
 import bcrypt from 'bcryptjs';
 import { getDb, isFirebaseConfigured, markFirebaseUnavailable } from './firebase';
 import { getStore, Admin, Session, Transaction, AuditLog, Settings, Party, LedgerPage } from './store';
+import { withCache, cacheDel, cacheDelPattern, cacheSet, CacheKeys, CacheTTL } from './cache';
 
 function useFirestore(): boolean {
   return isFirebaseConfigured() && !!getDb();
@@ -62,31 +63,35 @@ export async function seedAdmins(): Promise<void> {
 }
 
 export async function findAdminByEmail(email: string): Promise<Admin | null> {
-  if (useFirestore()) {
-    const db = getDb()!;
-    const snapshot = await db.collection('admins')
-      .where('email', '==', email.toLowerCase())
-      .where('isActive', '==', true)
-      .limit(1)
-      .get();
-    if (snapshot.empty) return null;
-    return snapshot.docs[0].data() as Admin;
-  } else {
-    const store = getStore();
-    return store.admins.find(a => a.email === email.toLowerCase() && a.isActive) || null;
-  }
+  return withCache(CacheKeys.adminByEmail(email), CacheTTL.ADMIN, async () => {
+    if (useFirestore()) {
+      const db = getDb()!;
+      const snapshot = await db.collection('admins')
+        .where('email', '==', email.toLowerCase())
+        .where('isActive', '==', true)
+        .limit(1)
+        .get();
+      if (snapshot.empty) return null;
+      return snapshot.docs[0].data() as Admin;
+    } else {
+      const store = getStore();
+      return store.admins.find(a => a.email === email.toLowerCase() && a.isActive) || null;
+    }
+  });
 }
 
 export async function findAdminById(id: string): Promise<Admin | null> {
-  if (useFirestore()) {
-    const db = getDb()!;
-    const doc = await db.collection('admins').doc(id).get();
-    if (!doc.exists) return null;
-    return doc.data() as Admin;
-  } else {
-    const store = getStore();
-    return store.admins.find(a => a.id === id) || null;
-  }
+  return withCache(CacheKeys.adminById(id), CacheTTL.ADMIN, async () => {
+    if (useFirestore()) {
+      const db = getDb()!;
+      const doc = await db.collection('admins').doc(id).get();
+      if (!doc.exists) return null;
+      return doc.data() as Admin;
+    } else {
+      const store = getStore();
+      return store.admins.find(a => a.id === id) || null;
+    }
+  });
 }
 
 export async function updateAdmin(id: string, data: Partial<Admin>): Promise<void> {
@@ -98,6 +103,9 @@ export async function updateAdmin(id: string, data: Partial<Admin>): Promise<voi
     const admin = store.admins.find(a => a.id === id);
     if (admin) Object.assign(admin, data);
   }
+  // Invalidate admin caches
+  await cacheDel(CacheKeys.adminById(id));
+  await cacheDelPattern('admin:email:*');
 }
 
 // ─── SESSION OPERATIONS ───
@@ -266,13 +274,23 @@ export async function createTransaction(data: {
     await db.collection('transactions').doc(transaction.id).set(transaction);
     await recalculateBalancesFirestore();
     const doc = await db.collection('transactions').doc(transaction.id).get();
+    await invalidateTransactionCaches();
     return doc.data() as Transaction;
   } else {
     const store = getStore();
     store.transactions.push(transaction);
     recalculateBalancesMemory();
+    await invalidateTransactionCaches();
     return store.transactions.find(t => t.id === transaction.id)!;
   }
+}
+
+// Invalidate transaction-related caches
+async function invalidateTransactionCaches(partyId?: string, pageId?: string) {
+  const keys = [CacheKeys.txnList(), CacheKeys.stats()];
+  if (partyId) keys.push(CacheKeys.partyPages(partyId), CacheKeys.partyList());
+  if (pageId) keys.push(CacheKeys.pageTxns(pageId));
+  await cacheDel(...keys);
 }
 
 export async function findTransactionById(id: string): Promise<Transaction | null> {
@@ -292,6 +310,7 @@ export async function updateTransaction(id: string, data: {
   debit: number; credit: number; sr: number; type?: string;
   adminId: string;
 }): Promise<Transaction | null> {
+  let result: Transaction | null = null;
   if (useFirestore()) {
     const db = getDb()!;
     const docRef = db.collection('transactions').doc(id);
@@ -316,7 +335,7 @@ export async function updateTransaction(id: string, data: {
     await docRef.set(updated);
     await recalculateBalancesFirestore();
     const refreshed = await docRef.get();
-    return refreshed.data() as Transaction;
+    result = refreshed.data() as Transaction;
   } else {
     const store = getStore();
     const index = store.transactions.findIndex(t => t.id === id);
@@ -337,31 +356,34 @@ export async function updateTransaction(id: string, data: {
       updatedAt: new Date().toISOString(),
     };
     recalculateBalancesMemory();
-    return store.transactions.find(t => t.id === id)!;
+    result = store.transactions.find(t => t.id === id)!;
   }
+  if (result) await invalidateTransactionCaches(result.partyId, result.pageId);
+  return result;
 }
 
 export async function deleteTransaction(id: string): Promise<Transaction | null> {
+  let deleted: Transaction | null = null;
   if (useFirestore()) {
     const db = getDb()!;
     const docRef = db.collection('transactions').doc(id);
     const doc = await docRef.get();
     if (!doc.exists) return null;
 
-    const deleted = doc.data() as Transaction;
+    deleted = doc.data() as Transaction;
     await docRef.delete();
     await recalculateBalancesFirestore();
-    return deleted;
   } else {
     const store = getStore();
     const index = store.transactions.findIndex(t => t.id === id);
     if (index === -1) return null;
 
-    const deleted = store.transactions[index];
+    deleted = store.transactions[index];
     store.transactions.splice(index, 1);
     recalculateBalancesMemory();
-    return deleted;
   }
+  if (deleted) await invalidateTransactionCaches(deleted.partyId, deleted.pageId);
+  return deleted;
 }
 
 // ─── AUDIT LOG OPERATIONS ───
@@ -436,27 +458,30 @@ export async function getAuditLogs(params: {
 const SETTINGS_DOC = 'config/settings';
 
 export async function getSettings(): Promise<Settings> {
-  if (useFirestore()) {
-    const db = getDb()!;
-    const doc = await db.doc(SETTINGS_DOC).get();
-    if (!doc.exists) {
-      const defaults: Settings = {
-        shopName: 'Shree Ganpati Agency',
-        currency: 'INR',
-        dateFormat: 'DD/MM/YYYY',
-        sortOrder: 'newest',
-      };
-      await db.doc(SETTINGS_DOC).set(defaults);
-      return defaults;
+  return withCache(CacheKeys.settings(), CacheTTL.SETTINGS, async () => {
+    if (useFirestore()) {
+      const db = getDb()!;
+      const doc = await db.doc(SETTINGS_DOC).get();
+      if (!doc.exists) {
+        const defaults: Settings = {
+          shopName: 'Shree Ganpati Agency',
+          currency: 'INR',
+          dateFormat: 'DD/MM/YYYY',
+          sortOrder: 'newest',
+        };
+        await db.doc(SETTINGS_DOC).set(defaults);
+        return defaults;
+      }
+      return doc.data() as Settings;
+    } else {
+      const store = getStore();
+      return store.settings;
     }
-    return doc.data() as Settings;
-  } else {
-    const store = getStore();
-    return store.settings;
-  }
+  });
 }
 
 export async function updateSettings(data: Partial<Settings>): Promise<Settings> {
+  let result: Settings;
   if (useFirestore()) {
     const db = getDb()!;
     const doc = await db.doc(SETTINGS_DOC).get();
@@ -467,15 +492,18 @@ export async function updateSettings(data: Partial<Settings>): Promise<Settings>
 
     const updated = { ...current, ...data };
     await db.doc(SETTINGS_DOC).set(updated);
-    return updated;
+    result = updated;
   } else {
     const store = getStore();
     if (data.shopName) store.settings.shopName = data.shopName;
     if (data.currency) store.settings.currency = data.currency;
     if (data.dateFormat) store.settings.dateFormat = data.dateFormat;
     if (data.sortOrder) store.settings.sortOrder = data.sortOrder;
-    return store.settings;
+    result = store.settings;
   }
+  // Invalidate + pre-warm cache with new value
+  await cacheSet(CacheKeys.settings(), result, CacheTTL.SETTINGS);
+  return result;
 }
 
 // ─── PARTY (KHATA) OPERATIONS ───
@@ -502,85 +530,95 @@ export async function createParty(data: {
     const store = getStore();
     store.parties.push(party);
   }
+  // Invalidate party list + stats cache
+  await cacheDel(CacheKeys.partyList(), CacheKeys.stats());
   return party;
 }
 
 export async function getAllParties(filters?: { search?: string; page?: number; limit?: number }) {
   const { search, page = 1, limit = 50 } = filters || {};
 
-  if (useFirestore()) {
-    const db = getDb()!;
-    const snapshot = await db.collection('parties').where('isActive', '==', true).get();
-    let parties = snapshot.docs.map(d => d.data() as Party);
-    parties.sort((a, b) => a.name.localeCompare(b.name));
-    if (search) parties = parties.filter(p =>
+  // Cache the full unfiltered party list (most common request)
+  const fetcher = async () => {
+    if (useFirestore()) {
+      const db = getDb()!;
+      const snapshot = await db.collection('parties').where('isActive', '==', true).get();
+      let parties = snapshot.docs.map(d => d.data() as Party);
+      parties.sort((a, b) => a.name.localeCompare(b.name));
+
+      return await Promise.all(parties.map(async (p) => {
+        const txSnap = await db.collection('transactions').where('partyId', '==', p.id).get();
+        const pageSnap = await db.collection('ledger_pages').where('partyId', '==', p.id).get();
+        const txs = txSnap.docs.map(d => d.data());
+        return {
+          ...p,
+          totalPages: pageSnap.size,
+          totalTransactions: txSnap.size,
+          totalDebit: txs.reduce((s, t) => s + (t.debit || 0), 0),
+          totalCredit: txs.reduce((s, t) => s + (t.credit || 0), 0),
+          totalSR: txs.reduce((s, t) => s + (t.sr || 0), 0),
+          balance: txs.reduce((s, t) => s + (t.credit || 0) + (t.sr || 0) - (t.debit || 0), 0),
+          lastActivity: txs.length > 0 ? txs.sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0].createdAt : p.createdAt,
+        };
+      }));
+    } else {
+      const store = getStore();
+      let parties = store.parties.filter(p => p.isActive);
+      parties.sort((a, b) => a.name.localeCompare(b.name));
+
+      return parties.map(p => {
+        const txs = store.transactions.filter(t => t.partyId === p.id);
+        const pages = store.ledger_pages.filter(lp => lp.partyId === p.id);
+        return {
+          ...p,
+          totalPages: pages.length,
+          totalTransactions: txs.length,
+          totalDebit: txs.reduce((s, t) => s + (t.debit || 0), 0),
+          totalCredit: txs.reduce((s, t) => s + (t.credit || 0), 0),
+          totalSR: txs.reduce((s, t) => s + (t.sr || 0), 0),
+          balance: txs.reduce((s, t) => s + (t.credit || 0) + (t.sr || 0) - (t.debit || 0), 0),
+          lastActivity: txs.length > 0 ? txs.sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0].createdAt : p.createdAt,
+        };
+      });
+    }
+  };
+
+  // Use cache only for default (no search) — filtered views go direct to DB
+  const allParties = search
+    ? await fetcher()
+    : await withCache(CacheKeys.partyList(), CacheTTL.PARTY_LIST, fetcher);
+
+  // Apply search filter on cached data
+  let filtered = allParties;
+  if (search) {
+    filtered = allParties.filter((p: { name: string; phone: string }) =>
       p.name.toLowerCase().includes(search.toLowerCase()) ||
       p.phone.includes(search)
     );
-
-    const partiesWithStats = await Promise.all(parties.map(async (p) => {
-      const txSnap = await db.collection('transactions').where('partyId', '==', p.id).get();
-      const pageSnap = await db.collection('ledger_pages').where('partyId', '==', p.id).get();
-      const txs = txSnap.docs.map(d => d.data());
-      return {
-        ...p,
-        totalPages: pageSnap.size,
-        totalTransactions: txSnap.size,
-        totalDebit: txs.reduce((s, t) => s + (t.debit || 0), 0),
-        totalCredit: txs.reduce((s, t) => s + (t.credit || 0), 0),
-        totalSR: txs.reduce((s, t) => s + (t.sr || 0), 0),
-        balance: txs.reduce((s, t) => s + (t.credit || 0) + (t.sr || 0) - (t.debit || 0), 0),
-        lastActivity: txs.length > 0 ? txs.sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0].createdAt : p.createdAt,
-      };
-    }));
-
-    const total = partiesWithStats.length;
-    const start = (page - 1) * limit;
-    return { parties: partiesWithStats.slice(start, start + limit), total, page, totalPages: Math.ceil(total / limit) };
-  } else {
-    const store = getStore();
-    let parties = store.parties.filter(p => p.isActive);
-    if (search) parties = parties.filter(p =>
-      p.name.toLowerCase().includes(search.toLowerCase()) ||
-      p.phone.includes(search)
-    );
-    parties.sort((a, b) => a.name.localeCompare(b.name));
-
-    const partiesWithStats = parties.map(p => {
-      const txs = store.transactions.filter(t => t.partyId === p.id);
-      const pages = store.ledger_pages.filter(lp => lp.partyId === p.id);
-      return {
-        ...p,
-        totalPages: pages.length,
-        totalTransactions: txs.length,
-        totalDebit: txs.reduce((s, t) => s + (t.debit || 0), 0),
-        totalCredit: txs.reduce((s, t) => s + (t.credit || 0), 0),
-        totalSR: txs.reduce((s, t) => s + (t.sr || 0), 0),
-        balance: txs.reduce((s, t) => s + (t.credit || 0) + (t.sr || 0) - (t.debit || 0), 0),
-        lastActivity: txs.length > 0 ? txs.sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0].createdAt : p.createdAt,
-      };
-    });
-
-    const total = partiesWithStats.length;
-    const start = (page - 1) * limit;
-    return { parties: partiesWithStats.slice(start, start + limit), total, page, totalPages: Math.ceil(total / limit) };
   }
+
+  const total = filtered.length;
+  const start = (page - 1) * limit;
+  return { parties: filtered.slice(start, start + limit), total, page, totalPages: Math.ceil(total / limit) };
 }
 
 export async function getPartyById(id: string): Promise<Party | null> {
-  if (useFirestore()) {
-    const db = getDb()!;
-    const doc = await db.collection('parties').doc(id).get();
-    if (!doc.exists || !(doc.data() as Party).isActive) return null;
-    return doc.data() as Party;
-  } else {
-    const store = getStore();
-    return store.parties.find(p => p.id === id && p.isActive) || null;
-  }
+  return withCache(CacheKeys.partyById(id), CacheTTL.PARTY, async () => {
+    if (useFirestore()) {
+      const db = getDb()!;
+      const doc = await db.collection('parties').doc(id).get();
+      if (!doc.exists || !(doc.data() as Party).isActive) return null;
+      return doc.data() as Party;
+    } else {
+      const store = getStore();
+      return store.parties.find(p => p.id === id && p.isActive) || null;
+    }
+  });
 }
 
 export async function updateParty(id: string, data: Partial<Pick<Party, 'name' | 'phone' | 'address' | 'notes'>>): Promise<Party | null> {
   const updates = { ...data, updatedAt: new Date().toISOString() };
+  let result: Party | null = null;
   if (useFirestore()) {
     const db = getDb()!;
     const docRef = db.collection('parties').doc(id);
@@ -588,14 +626,17 @@ export async function updateParty(id: string, data: Partial<Pick<Party, 'name' |
     if (!doc.exists) return null;
     await docRef.update(updates);
     const refreshed = await docRef.get();
-    return refreshed.data() as Party;
+    result = refreshed.data() as Party;
   } else {
     const store = getStore();
     const party = store.parties.find(p => p.id === id);
     if (!party) return null;
     Object.assign(party, updates);
-    return party;
+    result = party;
   }
+  // Invalidate party caches
+  await cacheDel(CacheKeys.partyById(id), CacheKeys.partyList());
+  return result;
 }
 
 export async function deleteParty(id: string): Promise<boolean> {
@@ -605,15 +646,16 @@ export async function deleteParty(id: string): Promise<boolean> {
     const doc = await docRef.get();
     if (!doc.exists) return false;
     await docRef.update({ isActive: false, updatedAt: new Date().toISOString() });
-    return true;
   } else {
     const store = getStore();
     const party = store.parties.find(p => p.id === id);
     if (!party) return false;
     party.isActive = false;
     party.updatedAt = new Date().toISOString();
-    return true;
   }
+  // Invalidate party + list + stats
+  await cacheDel(CacheKeys.partyById(id), CacheKeys.partyList(), CacheKeys.stats());
+  return true;
 }
 
 // ─── LEDGER PAGE OPERATIONS ───
@@ -654,105 +696,113 @@ export async function createLedgerPage(data: {
     const store = getStore();
     store.ledger_pages.push(lp);
   }
+  // Invalidate party pages + stats
+  await cacheDel(CacheKeys.partyPages(data.partyId), CacheKeys.stats());
   return lp;
 }
 
 export async function getPartyPages(partyId: string) {
-  if (useFirestore()) {
-    const db = getDb()!;
-    const snap = await db.collection('ledger_pages').where('partyId', '==', partyId).get();
-    const pages = snap.docs.map(d => d.data() as LedgerPage);
-    pages.sort((a, b) => a.pageNumber - b.pageNumber);
+  return withCache(CacheKeys.partyPages(partyId), CacheTTL.PAGES, async () => {
+    if (useFirestore()) {
+      const db = getDb()!;
+      const snap = await db.collection('ledger_pages').where('partyId', '==', partyId).get();
+      const pages = snap.docs.map(d => d.data() as LedgerPage);
+      pages.sort((a, b) => a.pageNumber - b.pageNumber);
 
-    return await Promise.all(pages.map(async (p) => {
-      const txSnap = await db.collection('transactions').where('pageId', '==', p.id).get();
-      const txs = txSnap.docs.map(d => d.data());
-      const totalDebit = txs.reduce((s, t) => s + (t.debit || 0), 0);
-      const totalCredit = txs.reduce((s, t) => s + (t.credit || 0), 0);
-      const totalSR = txs.reduce((s, t) => s + (t.sr || 0), 0);
-      return {
-        ...p,
-        transactionCount: txSnap.size,
-        totalDebit, totalCredit, totalSR,
-        closingBalance: p.openingBalance + totalCredit + totalSR - totalDebit,
-      };
-    }));
-  } else {
-    const store = getStore();
-    const pages = store.ledger_pages.filter(p => p.partyId === partyId);
-    pages.sort((a, b) => a.pageNumber - b.pageNumber);
-    return pages.map(p => {
-      const txs = store.transactions.filter(t => t.pageId === p.id);
-      const totalDebit = txs.reduce((s, t) => s + (t.debit || 0), 0);
-      const totalCredit = txs.reduce((s, t) => s + (t.credit || 0), 0);
-      const totalSR = txs.reduce((s, t) => s + (t.sr || 0), 0);
-      return {
-        ...p,
-        transactionCount: txs.length,
-        totalDebit, totalCredit, totalSR,
-        closingBalance: p.openingBalance + totalCredit + totalSR - totalDebit,
-      };
-    });
-  }
+      return await Promise.all(pages.map(async (p) => {
+        const txSnap = await db.collection('transactions').where('pageId', '==', p.id).get();
+        const txs = txSnap.docs.map(d => d.data());
+        const totalDebit = txs.reduce((s, t) => s + (t.debit || 0), 0);
+        const totalCredit = txs.reduce((s, t) => s + (t.credit || 0), 0);
+        const totalSR = txs.reduce((s, t) => s + (t.sr || 0), 0);
+        return {
+          ...p,
+          transactionCount: txSnap.size,
+          totalDebit, totalCredit, totalSR,
+          closingBalance: p.openingBalance + totalCredit + totalSR - totalDebit,
+        };
+      }));
+    } else {
+      const store = getStore();
+      const pages = store.ledger_pages.filter(p => p.partyId === partyId);
+      pages.sort((a, b) => a.pageNumber - b.pageNumber);
+      return pages.map(p => {
+        const txs = store.transactions.filter(t => t.pageId === p.id);
+        const totalDebit = txs.reduce((s, t) => s + (t.debit || 0), 0);
+        const totalCredit = txs.reduce((s, t) => s + (t.credit || 0), 0);
+        const totalSR = txs.reduce((s, t) => s + (t.sr || 0), 0);
+        return {
+          ...p,
+          transactionCount: txs.length,
+          totalDebit, totalCredit, totalSR,
+          closingBalance: p.openingBalance + totalCredit + totalSR - totalDebit,
+        };
+      });
+    }
+  });
 }
 
 export async function getLedgerPageById(pageId: string): Promise<LedgerPage | null> {
-  if (useFirestore()) {
-    const db = getDb()!;
-    const doc = await db.collection('ledger_pages').doc(pageId).get();
-    if (!doc.exists) return null;
-    return doc.data() as LedgerPage;
-  } else {
-    const store = getStore();
-    return store.ledger_pages.find(p => p.id === pageId) || null;
-  }
+  return withCache(CacheKeys.pageById(pageId), CacheTTL.PAGE, async () => {
+    if (useFirestore()) {
+      const db = getDb()!;
+      const doc = await db.collection('ledger_pages').doc(pageId).get();
+      if (!doc.exists) return null;
+      return doc.data() as LedgerPage;
+    } else {
+      const store = getStore();
+      return store.ledger_pages.find(p => p.id === pageId) || null;
+    }
+  });
 }
 
 export async function getPageTransactions(pageId: string, filters?: { page?: number; limit?: number }) {
   const { page = 1, limit = 50 } = filters || {};
 
-  if (useFirestore()) {
-    const db = getDb()!;
-    const snap = await db.collection('transactions')
-      .where('pageId', '==', pageId)
-      .orderBy('date', 'asc')
-      .orderBy('createdAt', 'asc')
-      .get();
-    const transactions = snap.docs.map(d => d.data() as Transaction);
+  // Cache the full transaction list for this page, then paginate from cache
+  const allTxns = await withCache(CacheKeys.pageTxns(pageId), CacheTTL.PAGE_TXNS, async () => {
+    if (useFirestore()) {
+      const db = getDb()!;
+      const snap = await db.collection('transactions')
+        .where('pageId', '==', pageId)
+        .orderBy('date', 'asc')
+        .orderBy('createdAt', 'asc')
+        .get();
+      const transactions = snap.docs.map(d => d.data() as Transaction);
 
-    const pageDoc = await db.collection('ledger_pages').doc(pageId).get();
-    const lp = pageDoc.data() as LedgerPage;
-    let running = lp?.openingBalance || 0;
-    const withBalance = transactions.map(t => {
-      running += (t.credit || 0) + (t.sr || 0) - (t.debit || 0);
-      return { ...t, pageBalance: running };
-    });
+      const pageDoc = await db.collection('ledger_pages').doc(pageId).get();
+      const lp = pageDoc.data() as LedgerPage;
+      let running = lp?.openingBalance || 0;
+      const withBalance = transactions.map(t => {
+        running += (t.credit || 0) + (t.sr || 0) - (t.debit || 0);
+        return { ...t, pageBalance: running };
+      });
+      return { txns: withBalance, openingBalance: lp?.openingBalance || 0 };
+    } else {
+      const store = getStore();
+      const txs = store.transactions.filter(t => t.pageId === pageId);
+      txs.sort((a, b) => {
+        const d = new Date(a.date).getTime() - new Date(b.date).getTime();
+        return d !== 0 ? d : new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+      });
 
-    const total = withBalance.length;
-    const start = (page - 1) * limit;
-    return { transactions: withBalance.slice(start, start + limit), total, page, totalPages: Math.ceil(total / limit), openingBalance: lp?.openingBalance || 0 };
-  } else {
-    const store = getStore();
-    const txs = store.transactions.filter(t => t.pageId === pageId);
-    txs.sort((a, b) => {
-      const d = new Date(a.date).getTime() - new Date(b.date).getTime();
-      return d !== 0 ? d : new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
-    });
+      const lp = store.ledger_pages.find(p => p.id === pageId);
+      let running = lp?.openingBalance || 0;
+      const withBalance = txs.map(t => {
+        running += (t.credit || 0) + (t.sr || 0) - (t.debit || 0);
+        return { ...t, pageBalance: running };
+      });
+      return { txns: withBalance, openingBalance: lp?.openingBalance || 0 };
+    }
+  });
 
-    const lp = store.ledger_pages.find(p => p.id === pageId);
-    let running = lp?.openingBalance || 0;
-    const withBalance = txs.map(t => {
-      running += (t.credit || 0) + (t.sr || 0) - (t.debit || 0);
-      return { ...t, pageBalance: running };
-    });
-
-    const total = withBalance.length;
-    const start = (page - 1) * limit;
-    return { transactions: withBalance.slice(start, start + limit), total, page, totalPages: Math.ceil(total / limit), openingBalance: lp?.openingBalance || 0 };
-  }
+  const total = allTxns.txns.length;
+  const start = (page - 1) * limit;
+  return { transactions: allTxns.txns.slice(start, start + limit), total, page, totalPages: Math.ceil(total / limit), openingBalance: allTxns.openingBalance };
 }
 
 export async function closeLedgerPage(pageId: string): Promise<LedgerPage | null> {
+  let result: LedgerPage | null = null;
   if (useFirestore()) {
     const db = getDb()!;
     const docRef = db.collection('ledger_pages').doc(pageId);
@@ -760,15 +810,19 @@ export async function closeLedgerPage(pageId: string): Promise<LedgerPage | null
     if (!doc.exists) return null;
     const updated = { ...doc.data() as LedgerPage, status: 'closed' as const, closedAt: new Date().toISOString() };
     await docRef.set(updated);
-    return updated;
+    result = updated;
   } else {
     const store = getStore();
     const p = store.ledger_pages.find(lp => lp.id === pageId);
     if (!p) return null;
     p.status = 'closed';
     p.closedAt = new Date().toISOString();
-    return p;
+    result = p;
   }
+  // Invalidate page + party pages cache
+  await cacheDel(CacheKeys.pageById(pageId));
+  if (result) await cacheDel(CacheKeys.partyPages(result.partyId));
+  return result;
 }
 
 export async function createPageTransaction(data: {
@@ -800,11 +854,14 @@ export async function createPageTransaction(data: {
     await db.collection('transactions').doc(tx.id).set(tx);
     await recalculateBalancesFirestore();
     const doc = await db.collection('transactions').doc(tx.id).get();
+    // Invalidate page transactions, party pages, stats
+    await invalidateTransactionCaches(data.partyId, data.pageId);
     return doc.data() as Transaction;
   } else {
     const store = getStore();
     store.transactions.push(tx);
     recalculateBalancesMemory();
+    await invalidateTransactionCaches(data.partyId, data.pageId);
     return store.transactions.find(t => t.id === tx.id)!;
   }
 }
@@ -812,34 +869,36 @@ export async function createPageTransaction(data: {
 // ─── HEALTH / STATS OPERATIONS ───
 
 export async function getSystemStats() {
-  if (useFirestore()) {
-    const db = getDb()!;
-    const [txSnap, partySnap, pageSnap, auditSnap, adminSnap] = await Promise.all([
-      db.collection('transactions').get(),
-      db.collection('parties').where('isActive', '==', true).get(),
-      db.collection('ledger_pages').get(),
-      db.collection('audit_logs').get(),
-      db.collection('admins').where('isActive', '==', true).get(),
-    ]);
-    return {
-      totalTransactions: txSnap.size,
-      totalParties: partySnap.size,
-      totalPages: pageSnap.size,
-      totalAuditLogs: auditSnap.size,
-      totalAdmins: adminSnap.size,
-      database: 'firestore' as const,
-    };
-  } else {
-    const store = getStore();
-    return {
-      totalTransactions: store.transactions.length,
-      totalParties: store.parties.filter(p => p.isActive).length,
-      totalPages: store.ledger_pages.length,
-      totalAuditLogs: store.audit_logs.length,
-      totalAdmins: store.admins.filter(a => a.isActive).length,
-      database: 'in-memory' as const,
-    };
-  }
+  return withCache(CacheKeys.stats(), CacheTTL.STATS, async () => {
+    if (useFirestore()) {
+      const db = getDb()!;
+      const [txSnap, partySnap, pageSnap, auditSnap, adminSnap] = await Promise.all([
+        db.collection('transactions').get(),
+        db.collection('parties').where('isActive', '==', true).get(),
+        db.collection('ledger_pages').get(),
+        db.collection('audit_logs').get(),
+        db.collection('admins').where('isActive', '==', true).get(),
+      ]);
+      return {
+        totalTransactions: txSnap.size,
+        totalParties: partySnap.size,
+        totalPages: pageSnap.size,
+        totalAuditLogs: auditSnap.size,
+        totalAdmins: adminSnap.size,
+        database: 'firestore' as const,
+      };
+    } else {
+      const store = getStore();
+      return {
+        totalTransactions: store.transactions.length,
+        totalParties: store.parties.filter(p => p.isActive).length,
+        totalPages: store.ledger_pages.length,
+        totalAuditLogs: store.audit_logs.length,
+        totalAdmins: store.admins.filter(a => a.isActive).length,
+        database: 'in-memory' as const,
+      };
+    }
+  });
 }
 
 // ─── BACKUP / EXPORT ───

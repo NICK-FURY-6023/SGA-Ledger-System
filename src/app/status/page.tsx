@@ -27,6 +27,7 @@ interface HealthData {
   services: {
     api: ServiceStatus;
     database: ServiceStatus;
+    cache: ServiceStatus;
     auth: ServiceStatus;
     audit: ServiceStatus;
   };
@@ -216,6 +217,12 @@ const SvgDatabase = ({ size = 16, color = 'currentColor' }: { size?: number; col
   </svg>
 );
 
+const SvgZap = ({ size = 16, color = 'currentColor' }: { size?: number; color?: string }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+  </svg>
+);
+
 const SvgShield = ({ size = 16, color = 'currentColor' }: { size?: number; color?: string }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
@@ -346,6 +353,7 @@ export default function StatusPage() {
   const services = health ? [
     { key: 'api', name: 'API Server', icon: <SvgGlobe size={20} />, status: health.services.api.status, detail: `Uptime: ${formatUptime(health.uptime)}` },
     { key: 'database', name: 'Database', icon: <SvgDatabase size={20} />, status: health.services.database.status, detail: `${health.services.database.type} — ${health.services.database.latency}ms latency` },
+    { key: 'cache', name: 'Redis Cache', icon: <SvgZap size={20} />, status: health.services.cache?.status || 'not-configured', detail: (health.services.cache?.latency ?? -1) >= 0 ? `Upstash Redis — ${health.services.cache?.latency}ms latency` : 'Upstash Redis — not configured' },
     { key: 'auth', name: 'Authentication', icon: <SvgShield size={20} />, status: health.services.auth.status, detail: 'JWT + bcrypt sessions' },
     { key: 'audit', name: 'Audit System', icon: <SvgActivity size={20} />, status: health.services.audit.status, detail: 'Event logging active' },
   ] : [];
@@ -443,11 +451,12 @@ export default function StatusPage() {
 
         {/* ─── Quick Stats Row ─── */}
         <div style={{
-          display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', marginBottom: '2rem',
+          display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginBottom: '2rem',
         }}>
           {[
             { label: 'Uptime', value: `${uptimePercent}%`, color: uptimePercent >= 99 ? '#00C853' : uptimePercent >= 95 ? '#FF9800' : '#FF3D00' },
-            { label: 'Response Time', value: health?.services?.database?.latency !== undefined ? `${health.services.database.latency}ms` : '—', color: (health?.services?.database?.latency || 0) < 200 ? '#00C853' : '#FF9800' },
+            { label: 'DB Latency', value: health?.services?.database?.latency !== undefined ? `${health.services.database.latency}ms` : '—', color: (health?.services?.database?.latency || 0) < 200 ? '#00C853' : '#FF9800' },
+            { label: 'Cache Latency', value: (health?.services?.cache?.latency ?? -1) >= 0 ? `${health?.services?.cache?.latency}ms` : '—', color: (health?.services?.cache?.latency || 0) < 100 ? '#00C853' : '#FF9800' },
             { label: 'Server Uptime', value: health?.uptime ? formatUptime(health.uptime) : '—', color: '#0066FF' },
           ].map(s => (
             <div key={s.label} style={{

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { isFirebaseConfigured, getDb } from '@/lib/server/firebase';
 import { getSystemStats } from '@/lib/server/db';
-import { isUpstashConfigured, loadUptimeFromRedis, saveUptimeToRedis, UptimeEntry } from '@/lib/server/upstash';
+import { isUpstashConfigured, getRedis, loadUptimeFromRedis, saveUptimeToRedis, UptimeEntry } from '@/lib/server/upstash';
 
 const startTime = Date.now();
 
@@ -84,6 +84,23 @@ export async function GET(req: NextRequest) {
     dbStatus = 'error';
   }
 
+  // Redis cache health check
+  let redisLatency = -1;
+  let redisStatus = 'not-configured';
+  if (isUpstashConfigured()) {
+    try {
+      const r = getRedis();
+      if (r) {
+        const t0 = Date.now();
+        await r.ping();
+        redisLatency = Date.now() - t0;
+        redisStatus = 'connected';
+      }
+    } catch {
+      redisStatus = 'error';
+    }
+  }
+
   // Create uptime entry and save to Firestore
   const entryStatus: 'up' | 'down' | 'degraded' =
     dbStatus === 'error' ? 'down' : dbLatency > 500 ? 'degraded' : 'up';
@@ -108,6 +125,7 @@ export async function GET(req: NextRequest) {
       services: {
         api: { status: 'operational', uptime },
         database: { status: dbStatus, latency: dbLatency, type: base.database },
+        cache: { status: redisStatus, latency: redisLatency, type: 'upstash-redis' },
         auth: { status: 'operational' },
         audit: { status: 'operational' },
       },
@@ -135,6 +153,7 @@ export async function GET(req: NextRequest) {
     services: {
       api: { status: 'operational', uptime },
       database: { status: dbStatus, latency: dbLatency, type: base.database },
+      cache: { status: redisStatus, latency: redisLatency, type: 'upstash-redis' },
       auth: { status: 'operational' },
       audit: { status: 'operational' },
     },
