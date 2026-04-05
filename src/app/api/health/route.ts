@@ -3,9 +3,16 @@ import { isFirebaseConfigured, getDb } from '@/lib/server/firebase';
 import { getSystemStats } from '@/lib/server/db';
 
 const startTime = Date.now();
-const MAX_UPTIME_LOG = 90;
 
-// Load uptime history from Firestore (persistent across cold starts)
+// 1000 entries ≈ 200KB — well within Firestore free tier (1GB storage, 50K reads/day)
+// At 30s interval: ~8.3 hours of history; at 60s: ~16.6 hours
+const MAX_UPTIME_LOG = 1000;
+
+// Cleanup runs once every 50 writes to save Firestore read quota
+let writesSinceCleanup = 0;
+const CLEANUP_INTERVAL = 50;
+
+// Load uptime history from Firestore (persistent across cold starts & deploys)
 async function loadUptimeHistory(): Promise<{ time: string; status: 'up' | 'down' | 'degraded'; latency: number; checkedAt: number }[]> {
   if (isFirebaseConfigured() && getDb()) {
     try {
@@ -23,20 +30,24 @@ async function loadUptimeHistory(): Promise<{ time: string; status: 'up' | 'down
   return [];
 }
 
-// Save a single uptime entry to Firestore
+// Save uptime entry to Firestore, cleanup only periodically
 async function saveUptimeEntry(entry: { time: string; status: 'up' | 'down' | 'degraded'; latency: number; checkedAt: number }) {
   if (isFirebaseConfigured() && getDb()) {
     try {
       const db = getDb()!;
       await db.collection('uptime_history').add(entry);
 
-      // Cleanup: keep only last MAX_UPTIME_LOG entries
-      const countSnap = await db.collection('uptime_history').orderBy('checkedAt', 'asc').get();
-      if (countSnap.size > MAX_UPTIME_LOG) {
-        const toDelete = countSnap.docs.slice(0, countSnap.size - MAX_UPTIME_LOG);
-        const batch = db.batch();
-        toDelete.forEach(doc => batch.delete(doc.ref));
-        await batch.commit();
+      writesSinceCleanup++;
+      if (writesSinceCleanup >= CLEANUP_INTERVAL) {
+        writesSinceCleanup = 0;
+        // Only count and delete when over limit
+        const countSnap = await db.collection('uptime_history').orderBy('checkedAt', 'asc').get();
+        if (countSnap.size > MAX_UPTIME_LOG) {
+          const toDelete = countSnap.docs.slice(0, countSnap.size - MAX_UPTIME_LOG);
+          const batch = db.batch();
+          toDelete.forEach(doc => batch.delete(doc.ref));
+          await batch.commit();
+        }
       }
     } catch (err) {
       console.error('[SGALA] Failed to save uptime entry:', err);
