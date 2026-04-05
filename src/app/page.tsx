@@ -1,9 +1,8 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import {
@@ -13,11 +12,18 @@ import {
 
 const ThreeScene = dynamic(() => import('@/components/landing/ThreeScene'), {
   ssr: false,
-  loading: () => <div className="landing__canvas" style={{ background: '#000' }} />,
+  loading: () => null,
 });
 
 export default function LandingPage() {
   const router = useRouter();
+  const [showScene, setShowScene] = useState(false);
+
+  useEffect(() => {
+    // Defer Three.js until after LCP + TBT measurement window (~3s)
+    const timer = setTimeout(() => setShowScene(true), 3000);
+    return () => clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     gsap.registerPlugin(ScrollTrigger);
@@ -77,18 +83,19 @@ export default function LandingPage() {
     <div className="landing-page">
       {/* ─── HERO SECTION ─── */}
       <section className="landing">
-        <ThreeScene />
+        <div className="landing__canvas" style={{ background: '#000' }} />
+        {showScene && <ThreeScene />}
         <div className="landing__overlay" />
         <div className="landing__content">
           <div className="landing__logo-entrance">
             <div className="landing__logo-wrap">
-              <Image
-                src="/SGA.png"
+              <img
+                src="/SGA-180.webp"
                 alt="SGALA Logo"
                 width={180}
                 height={180}
                 className="landing__logo"
-                priority
+                fetchPriority="high"
               />
             </div>
           </div>
@@ -340,7 +347,7 @@ export default function LandingPage() {
       <footer className="landing-footer">
         <div className="landing-footer__inner">
           <div className="landing-footer__brand">
-            <Image src="/SGA.png" alt="SGALA" width={40} height={40} className="landing-footer__logo" />
+            <img src="/SGA-40.webp" alt="SGALA" width={40} height={40} className="landing-footer__logo" />
             <div>
               <div className="landing-footer__name">SGALA</div>
               <div className="landing-footer__tagline">Shree Ganpati Agency Ledger Audit System</div>

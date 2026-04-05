@@ -46,6 +46,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
+      <head>
+        <link rel="preload" href="/SGA-180.webp" as="image" type="image/webp" />
+      </head>
       <body>
         <AuthProvider>
           {children}

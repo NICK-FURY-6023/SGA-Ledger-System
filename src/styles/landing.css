@@ -481,13 +481,13 @@
 
 .landing-footer__tagline {
   font-size: 0.7rem;
-  color: var(--text-muted);
+  color: #999;
   letter-spacing: 1px;
 }
 
 .landing-footer__copy {
   font-size: 0.75rem;
-  color: var(--text-muted);
+  color: #999;
 }
 
 /* ─── ANIMATIONS ─── */
