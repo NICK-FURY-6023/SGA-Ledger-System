@@ -393,7 +393,7 @@ export default function StatusPage() {
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <img src="/SGA.png" alt="SGALA" style={{ width: 28, height: 28 }} />
             <span style={{ fontWeight: 700, fontSize: '1rem', color: '#fff' }}>SGALA</span>
-            <span style={{ color: '#555', fontSize: '0.85rem' }}>/ System Status</span>
+            <span style={{ color: '#999', fontSize: '0.85rem' }}>/ System Status</span>
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
@@ -434,7 +434,7 @@ export default function StatusPage() {
           textAlign: 'center', marginBottom: '3rem', padding: '2.5rem 2rem',
           background: overallOk ? 'rgba(0,200,83,0.04)' : 'rgba(255,61,0,0.04)',
           border: `1px solid ${overallOk ? 'rgba(0,200,83,0.15)' : 'rgba(255,61,0,0.15)'}`,
-          borderRadius: '16px',
+          borderRadius: '16px', minHeight: '180px',
         }}>
           <div style={{
             width: 56, height: 56, borderRadius: '50%', margin: '0 auto 1rem',
@@ -451,7 +451,7 @@ export default function StatusPage() {
           }}>
             {loading ? 'Checking Systems...' : overallOk ? 'All Systems Operational' : 'System Issues Detected'}
           </h1>
-          <p style={{ color: '#777', fontSize: '0.85rem', margin: 0 }}>
+          <p style={{ color: '#aaa', fontSize: '0.85rem', margin: 0 }}>
             Last checked: {lastRefresh || '—'}
             {health?.startedAt && ` | Running since: ${new Date(health.startedAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}`}
           </p>
@@ -471,7 +471,7 @@ export default function StatusPage() {
               background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)',
               borderRadius: '12px', padding: '1.2rem', textAlign: 'center',
             }}>
-              <div style={{ fontSize: '0.7rem', color: '#666', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '0.4rem' }}>
+              <div style={{ fontSize: '0.7rem', color: '#999', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '0.4rem' }}>
                 {s.label}
               </div>
               <div style={{ fontSize: '1.6rem', fontWeight: 800, color: s.color, fontFamily: "'JetBrains Mono', monospace" }}>
@@ -483,7 +483,7 @@ export default function StatusPage() {
 
         {/* ─── Service Uptime ─── */}
         <div style={{ marginBottom: '2rem' }}>
-          <h2 style={{ fontSize: '0.85rem', color: '#666', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <h2 style={{ fontSize: '0.85rem', color: '#999', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <SvgServer size={14} /> Service Uptime
           </h2>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -512,7 +512,7 @@ export default function StatusPage() {
                 {/* Horizontal line bar of colored segments */}
                 <div style={{ display: 'flex', gap: '2px', height: '34px', position: 'relative' }}>
                   {uptimeHistory.length === 0 ? (
-                    <div style={{ color: '#555', fontSize: '0.78rem', display: 'flex', alignItems: 'center', width: '100%', justifyContent: 'center' }}>
+                    <div style={{ color: '#999', fontSize: '0.78rem', display: 'flex', alignItems: 'center', width: '100%', justifyContent: 'center' }}>
                       Collecting uptime data...
                     </div>
                   ) : (
@@ -535,7 +535,7 @@ export default function StatusPage() {
                               Latency: <span style={{ color: '#fff', fontFamily: "'JetBrains Mono', monospace" }}>{entry.latency}ms</span>
                             </div>
                             {entry.checkedAt && (
-                              <div style={{ color: '#666', fontSize: '0.68rem', marginTop: '3px' }}>
+                              <div style={{ color: '#999', fontSize: '0.68rem', marginTop: '3px' }}>
                                 {new Date(entry.checkedAt).toLocaleString('en-IN')}
                               </div>
                             )}
@@ -569,7 +569,7 @@ export default function StatusPage() {
                   <span style={{ fontSize: '0.75rem', color: '#888', fontFamily: "'JetBrains Mono', monospace" }}>
                     {uptimePercent}% uptime
                   </span>
-                  <span style={{ fontSize: '0.68rem', color: '#555' }}>
+                  <span style={{ fontSize: '0.68rem', color: '#999' }}>
                     {uptimeHistory.length} checks
                   </span>
                 </div>
@@ -579,7 +579,7 @@ export default function StatusPage() {
 
           {/* Legend and 90-Day note */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1rem', padding: '0 0.2rem', flexWrap: 'wrap', gap: '0.5rem' }}>
-            <div style={{ display: 'flex', gap: '14px', fontSize: '0.68rem', color: '#555' }}>
+            <div style={{ display: 'flex', gap: '14px', fontSize: '0.68rem', color: '#999' }}>
               <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                 <span style={{ width: 8, height: 8, borderRadius: 2, background: '#00C853', display: 'inline-block' }} />
                 Fast (&lt;100ms)
@@ -597,7 +597,7 @@ export default function StatusPage() {
                 Down
               </span>
             </div>
-            <span style={{ fontSize: '0.68rem', color: '#555' }}>
+            <span style={{ fontSize: '0.68rem', color: '#999' }}>
               90-Day Uptime — hover any segment for details
             </span>
           </div>
@@ -605,7 +605,7 @@ export default function StatusPage() {
 
         {/* ─── Your Device & Location ─── */}
         <div style={{ marginBottom: '2rem' }}>
-          <h2 style={{ fontSize: '0.85rem', color: '#666', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <h2 style={{ fontSize: '0.85rem', color: '#999', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <SvgMonitor size={14} /> Your Connection
           </h2>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem' }}>
@@ -630,13 +630,13 @@ export default function StatusPage() {
                     { label: 'Network', value: deviceInfo.connection },
                   ].map(row => (
                     <div key={row.label} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-                      <span style={{ fontSize: '0.78rem', color: '#777' }}>{row.label}</span>
+                      <span style={{ fontSize: '0.78rem', color: '#aaa' }}>{row.label}</span>
                       <span style={{ fontSize: '0.78rem', color: '#E0E0E0', fontFamily: "'JetBrains Mono', monospace" }}>{row.value}</span>
                     </div>
                   ))}
                 </div>
               ) : (
-                <div style={{ color: '#555', fontSize: '0.8rem' }}>Detecting...</div>
+                <div style={{ color: '#999', fontSize: '0.8rem' }}>Detecting...</div>
               )}
             </div>
 
@@ -660,13 +660,13 @@ export default function StatusPage() {
                     { label: 'IP Address', value: health?.visitor?.ip || '—' },
                   ].map(row => (
                     <div key={row.label} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-                      <span style={{ fontSize: '0.78rem', color: '#777' }}>{row.label}</span>
+                      <span style={{ fontSize: '0.78rem', color: '#aaa' }}>{row.label}</span>
                       <span style={{ fontSize: '0.78rem', color: '#E0E0E0', fontFamily: "'JetBrains Mono', monospace" }}>{row.value}</span>
                     </div>
                   ))}
                 </div>
               ) : (
-                <div style={{ color: '#555', fontSize: '0.8rem' }}>Fetching location...</div>
+                <div style={{ color: '#999', fontSize: '0.8rem' }}>Fetching location...</div>
               )}
             </div>
           </div>
@@ -674,7 +674,7 @@ export default function StatusPage() {
 
         {/* ─── What We Monitor ─── */}
         <div style={{ marginBottom: '2rem' }}>
-          <h2 style={{ fontSize: '0.85rem', color: '#666', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '1rem' }}>
+          <h2 style={{ fontSize: '0.85rem', color: '#999', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '1rem' }}>
             Monitoring Details
           </h2>
           <div style={{
@@ -686,7 +686,7 @@ export default function StatusPage() {
               Each check pings the API server, tests database connectivity and measures response latency.
             </p>
             <p style={{ margin: 0 }}>
-              Uptime history is stored in Firestore and persists across server restarts and deployments (up to 90 checks).
+              Uptime history is stored in MongoDB Atlas and persists across server restarts and deployments (90-day retention).
               Each service displays a horizontal bar of color-coded segments. Hover any segment for exact timing.
               Green = fast (&lt;100ms), Yellow-Green = normal, Orange = degraded (&gt;300ms), Red = down.
             </p>
@@ -696,13 +696,13 @@ export default function StatusPage() {
         {/* ─── Footer ─── */}
         <div style={{
           textAlign: 'center', padding: '2rem 0 0', borderTop: '1px solid rgba(255,255,255,0.06)',
-          fontSize: '0.75rem', color: '#444',
+          fontSize: '0.75rem', color: '#888',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginBottom: '0.5rem' }}>
             <img src="/SGA.png" alt="SGALA" style={{ width: 20, height: 20, opacity: 0.5 }} />
             <span>SGALA — Shree Ganpati Agency Ledger Audit System</span>
           </div>
-          <div>Powered by Next.js + Vercel + Firebase</div>
+          <div>Powered by Next.js + Vercel + Firebase + MongoDB + Redis</div>
         </div>
       </main>
 
