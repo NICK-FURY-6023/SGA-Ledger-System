@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 
 /* ─── Types ─── */
 interface ServiceStatus {
@@ -431,7 +432,7 @@ export default function StatusPage() {
             <SvgArrowLeft size={14} /> Back
           </button>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <img src="/SGA.png" alt="SGALA" style={{ width: 28, height: 28 }} />
+            <Image src="/SGA.png" alt="SGALA" width={28} height={28} style={{ borderRadius: '50%' }} />
             <span style={{ fontWeight: 700, fontSize: '1rem', color: '#fff' }}>SGALA</span>
             <span style={{ color: '#999', fontSize: '0.85rem' }}>/ System Status</span>
           </div>
@@ -510,7 +511,7 @@ export default function StatusPage() {
             { label: 'Total Uptime', value: `${uptimePercent}%`, sub: mon ? `${mon.totalChecks} checks` : '', color: uptimePercent >= 99 ? '#00C853' : uptimePercent >= 95 ? '#FF9800' : '#FF3D00' },
             { label: 'Avg Latency', value: mon?.avgLatency ? `${mon.avgLatency}ms` : (health?.services?.database?.latency !== undefined ? `${health.services.database.latency}ms` : '—'), sub: 'All time', color: (mon?.avgLatency || health?.services?.database?.latency || 0) < 200 ? '#00C853' : '#FF9800' },
             { label: 'Online Since', value: mon?.onlineSince ? formatTimeSince(mon.onlineSince) : '—', sub: mon?.onlineSince ? formatDate(mon.onlineSince) : '', color: '#00C853' },
-            { label: 'Server Uptime', value: health?.uptime ? formatUptime(health.uptime) : '—', sub: health?.startedAt ? `Since ${new Date(health.startedAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}` : '', color: '#0066FF' },
+            { label: 'Server Uptime', value: health?.uptime ? formatUptime(health.uptime) : '—', sub: health?.startedAt ? `Since ${new Date(health.startedAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}` : '', color: '#3388FF' },
           ].map(s => (
             <div key={s.label} style={{
               background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)',
@@ -537,7 +538,28 @@ export default function StatusPage() {
             <SvgServer size={14} /> Service Uptime
           </h2>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            {services.map((svc) => (
+            {services.length === 0 ? (
+              Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} style={{
+                  background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)',
+                  borderRadius: '12px', padding: '1.2rem', animation: 'skeletonPulse 1.5s ease-in-out infinite',
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.8rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                      <div style={{ width: 20, height: 20, borderRadius: '4px', background: 'rgba(255,255,255,0.06)' }} />
+                      <div style={{ width: '100px', height: '14px', borderRadius: '4px', background: 'rgba(255,255,255,0.06)' }} />
+                    </div>
+                    <div style={{ width: '90px', height: '22px', borderRadius: '20px', background: 'rgba(255,255,255,0.04)' }} />
+                  </div>
+                  <div style={{ height: '34px', borderRadius: '4px', background: 'rgba(255,255,255,0.03)', marginBottom: '6px' }} />
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <div style={{ width: '60px', height: '12px', borderRadius: '4px', background: 'rgba(255,255,255,0.04)' }} />
+                    <div style={{ width: '50px', height: '12px', borderRadius: '4px', background: 'rgba(255,255,255,0.04)' }} />
+                  </div>
+                </div>
+              ))
+            ) : (
+              services.map((svc) => (
               <div key={svc.key} style={{
                 background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)',
                 borderRadius: '12px', padding: '1.2rem',
@@ -640,7 +662,8 @@ export default function StatusPage() {
                   </div>
                 )}
               </div>
-            ))}
+            ))
+            )}
           </div>
 
           {/* Legend and 90-Day note */}
@@ -680,8 +703,8 @@ export default function StatusPage() {
               background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)',
               borderRadius: '12px', padding: '1.2rem',
             }}>
-              <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#0066FF', marginBottom: '0.8rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <SvgMonitor size={14} color="#0066FF" /> Device Details
+              <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#3388FF', marginBottom: '0.8rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <SvgMonitor size={14} color="#3388FF" /> Device Details
               </div>
               {deviceInfo ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
@@ -765,7 +788,7 @@ export default function StatusPage() {
           fontSize: '0.75rem', color: '#888',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginBottom: '0.5rem' }}>
-            <img src="/SGA.png" alt="SGALA" style={{ width: 20, height: 20, opacity: 0.5 }} />
+            <Image src="/SGA.png" alt="SGALA" width={20} height={20} style={{ opacity: 0.5, borderRadius: '50%' }} />
             <span>SGALA — Shree Ganpati Agency Ledger Audit System</span>
           </div>
           <div>Powered by Next.js + Vercel + Firebase + MongoDB + Redis</div>
@@ -776,6 +799,10 @@ export default function StatusPage() {
         @keyframes statusPulse {
           0%, 100% { opacity: 1; transform: scale(1); }
           50% { opacity: 0.6; transform: scale(0.95); }
+        }
+        @keyframes skeletonPulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.4; }
         }
         @media (max-width: 600px) {
           main { padding: 1rem !important; }
