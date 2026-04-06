@@ -1,11 +1,10 @@
 'use client';
 
-import { useRef, useMemo, useEffect } from 'react';
+import { useRef, useMemo, useEffect, useState } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { Points, PointMaterial } from '@react-three/drei';
 import * as THREE from 'three';
 
-/* Deep-space starfield */
 function Starfield() {
   const ref = useRef<THREE.Points>(null!);
   const count = 2000;
@@ -33,10 +32,8 @@ function Starfield() {
   );
 }
 
-/* Main blue particle cloud */
-function BlueParticles() {
+function BlueParticles({ count = 1500 }: { count?: number }) {
   const ref = useRef<THREE.Points>(null!);
-  const count = 1500;
   const positions = useMemo(() => {
     const pos = new Float32Array(count * 3);
     for (let i = 0; i < count; i++) {
@@ -45,7 +42,7 @@ function BlueParticles() {
       pos[i * 3 + 2] = (Math.random() - 0.5) * 22;
     }
     return pos;
-  }, []);
+  }, [count]);
 
   useFrame((s) => {
     if (ref.current) {
@@ -61,10 +58,8 @@ function BlueParticles() {
   );
 }
 
-/* Orange accent particles */
-function OrangeParticles() {
+function OrangeParticles({ count = 600 }: { count?: number }) {
   const ref = useRef<THREE.Points>(null!);
-  const count = 600;
   const positions = useMemo(() => {
     const pos = new Float32Array(count * 3);
     for (let i = 0; i < count; i++) {
@@ -73,7 +68,7 @@ function OrangeParticles() {
       pos[i * 3 + 2] = (Math.random() - 0.5) * 18;
     }
     return pos;
-  }, []);
+  }, [count]);
 
   useFrame((s) => {
     if (ref.current) {
@@ -89,7 +84,6 @@ function OrangeParticles() {
   );
 }
 
-/* Animated orbital ring */
 function OrbitalRing({ radius, color, speed, tiltX, tiltY, thickness, opacity }: {
   radius: number; color: string; speed: number; tiltX: number; tiltY: number;
   thickness: number; opacity: number;
@@ -112,7 +106,6 @@ function OrbitalRing({ radius, color, speed, tiltX, tiltY, thickness, opacity }:
   );
 }
 
-/* Floating wireframe icosahedron */
 function FloatingShape({ position, color, speed, size }: {
   position: [number, number, number]; color: string; speed: number; size: number;
 }) {
@@ -135,7 +128,6 @@ function FloatingShape({ position, color, speed, size }: {
   );
 }
 
-/* Perspective grid floor */
 function GridFloor() {
   const geo = useMemo(() => {
     const pts: THREE.Vector3[] = [];
@@ -157,7 +149,6 @@ function GridFloor() {
   );
 }
 
-/* Central pulsing glow */
 function GlowCore() {
   const ref = useRef<THREE.Mesh>(null!);
 
@@ -176,23 +167,28 @@ function GlowCore() {
   );
 }
 
-/* Mouse-reactive cinematic camera */
 function CameraRig() {
   const mouse = useRef({ x: 0, y: 0 });
+  const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      mouse.current.x = (e.clientX / window.innerWidth - 0.5) * 2;
-      mouse.current.y = (e.clientY / window.innerHeight - 0.5) * 2;
-    };
-    window.addEventListener('mousemove', handler, { passive: true });
-    return () => window.removeEventListener('mousemove', handler);
+    const mobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    setIsMobile(mobile);
+
+    if (!mobile) {
+      const handler = (e: MouseEvent) => {
+        mouse.current.x = (e.clientX / window.innerWidth - 0.5) * 2;
+        mouse.current.y = (e.clientY / window.innerHeight - 0.5) * 2;
+      };
+      window.addEventListener('mousemove', handler, { passive: true });
+      return () => window.removeEventListener('mousemove', handler);
+    }
   }, []);
 
   useFrame((state) => {
     const t = state.clock.elapsedTime;
-    const mx = mouse.current.x;
-    const my = mouse.current.y;
+    const mx = isMobile ? 0 : mouse.current.x;
+    const my = isMobile ? 0 : mouse.current.y;
     state.camera.position.x = Math.sin(t * 0.04) * 1.5 + mx * 0.4;
     state.camera.position.y = Math.cos(t * 0.03) * 0.8 - my * 0.3;
     state.camera.position.z = 6 + Math.sin(t * 0.02) * 0.5;
@@ -203,30 +199,47 @@ function CameraRig() {
 }
 
 export default function ThreeScene() {
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const mobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    setIsMobile(mobile);
+  }, []);
+
+  const blueCount = isMobile ? 800 : 1500;
+  const orangeCount = isMobile ? 300 : 600;
+
   return (
     <div className="landing__canvas">
       <Canvas
         camera={{ position: [0, 0, 6], fov: 60 }}
-        dpr={[1, 1.2]}
-        gl={{ antialias: false, alpha: true, powerPreference: 'high-performance' }}
+        dpr={isMobile ? 1 : [1, 1.2]}
+        gl={{
+          antialias: isMobile ? false : true,
+          alpha: true,
+          powerPreference: 'high-performance',
+          precision: 'lowp',
+        }}
         style={{ background: '#000' }}
       >
         <ambientLight intensity={0.15} />
 
-        <Starfield />
-        <BlueParticles />
-        <OrangeParticles />
+        {!isMobile && <Starfield />}
+        <BlueParticles count={blueCount} />
+        <OrangeParticles count={orangeCount} />
 
         <OrbitalRing radius={2.5} color="#0066FF" speed={0.08} tiltX={0.3} tiltY={0} thickness={0.02} opacity={0.45} />
         <OrbitalRing radius={3.2} color="#FF8C00" speed={-0.06} tiltX={-0.2} tiltY={0.4} thickness={0.018} opacity={0.3} />
-        <OrbitalRing radius={4} color="#1E90FF" speed={0.04} tiltX={0.5} tiltY={-0.3} thickness={0.012} opacity={0.2} />
-        <OrbitalRing radius={5} color="#FF6600" speed={-0.03} tiltX={-0.4} tiltY={0.6} thickness={0.01} opacity={0.12} />
+        {!isMobile && <>
+          <OrbitalRing radius={4} color="#1E90FF" speed={0.04} tiltX={0.5} tiltY={-0.3} thickness={0.012} opacity={0.2} />
+          <OrbitalRing radius={5} color="#FF6600" speed={-0.03} tiltX={-0.4} tiltY={0.6} thickness={0.01} opacity={0.12} />
+        </>}
 
         <FloatingShape position={[-3.5, 2, -2]} color="#0066FF" speed={0.4} size={0.3} />
         <FloatingShape position={[4, -1, -3]} color="#FF8C00" speed={0.3} size={0.25} />
-        <FloatingShape position={[-2.5, -2.5, -1]} color="#1E90FF" speed={0.5} size={0.2} />
+        {!isMobile && <FloatingShape position={[-2.5, -2.5, -1]} color="#1E90FF" speed={0.5} size={0.2} />}
 
-        <GridFloor />
+        {!isMobile && <GridFloor />}
         <GlowCore />
         <CameraRig />
       </Canvas>
