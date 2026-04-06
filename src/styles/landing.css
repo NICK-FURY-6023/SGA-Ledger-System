@@ -55,10 +55,22 @@
 
 .landing__logo-entrance {
   display: inline-block;
+  opacity: 1;
+  transform: translateY(0);
 }
 
 .landing__cta-wrap {
   display: inline-block;
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.landing__full-name,
+.landing__subtitle,
+.landing__status-btn,
+.landing__scroll-hint {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 /* Logo — circular glow, not square */
