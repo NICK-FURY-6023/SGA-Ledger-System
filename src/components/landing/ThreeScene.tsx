@@ -200,6 +200,7 @@ function CameraRig() {
 
 export default function ThreeScene() {
   const [isMobile, setIsMobile] = useState(false);
+  const [hasError, setHasError] = useState(false);
 
   useEffect(() => {
     const mobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
@@ -208,6 +209,10 @@ export default function ThreeScene() {
 
   const blueCount = isMobile ? 800 : 1500;
   const orangeCount = isMobile ? 300 : 600;
+
+  if (hasError) {
+    return <div style={{ width: '100%', height: '100%', background: '#000' }} />;
+  }
 
   return (
     <div className="landing__canvas">
@@ -221,6 +226,13 @@ export default function ThreeScene() {
           precision: 'lowp',
         }}
         style={{ background: '#000' }}
+        onCreated={(state) => {
+          try {
+            state.gl.capabilities.maxTextureSize = 2048;
+          } catch (e) {
+            setHasError(true);
+          }
+        }}
       >
         <ambientLight intensity={0.15} />
 

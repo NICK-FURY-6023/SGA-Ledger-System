@@ -10,7 +10,7 @@ import {
 
 const ThreeScene = dynamic(() => import('@/components/landing/ThreeScene'), {
   ssr: false,
-  loading: () => null,
+  loading: () => <div style={{ width: '100%', height: '100%' }} />,
 });
 
 export default function LandingPage() {
