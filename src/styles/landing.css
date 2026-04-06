@@ -45,6 +45,12 @@
   z-index: 2;
   text-align: center;
   padding: 2rem;
+  max-width: 800px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
 }
 
 .landing__logo-entrance {
@@ -528,4 +534,42 @@
   .tech-grid { grid-template-columns: repeat(2, 1fr); }
 
   .landing-footer__inner { flex-direction: column; gap: 1rem; text-align: center; }
+
+  /* Reduce step numbers size on mobile */
+  .step__number { font-size: 1.5rem; }
+
+  /* Ensure content is visible */
+  .landing__content { display: flex; flex-direction: column; gap: 1.5rem; }
+}
+
+@media (max-width: 480px) {
+  /* Small mobile fixes */
+  .landing__title { font-size: 2rem; letter-spacing: 2px; }
+  .landing__full-name { font-size: 0.75rem; }
+  .landing__subtitle { font-size: 0.85rem; line-height: 1.4; }
+  .landing__logo-wrap { width: 100px; height: 100px; margin-bottom: 1rem; }
+  .landing__cta { padding: 12px 28px; font-size: 0.95rem; }
+  .landing__status-btn { font-size: 0.85rem; padding: 8px 16px; }
+
+  .landing-section { padding: 2.5rem 1rem; }
+  .landing-section__title { font-size: 1.4rem; }
+  .landing-section__desc { font-size: 0.95rem; }
+
+  .highlight-card { padding: 1.5rem; }
+  .highlight-card__icon { font-size: 1.5rem; }
+
+  .step { flex-direction: column; gap: 1rem; }
+  .step__number { font-size: 1.2rem; }
+
+  .feature-card { padding: 1.5rem; }
+  .tech-grid { grid-template-columns: 1fr; }
+  .tech-card { padding: 1rem; }
+
+  .landing-footer__logo { width: 32px; height: 32px; }
+  .landing-footer__name { font-size: 0.9rem; }
+  .landing-footer__tagline { font-size: 0.65rem; }
+  .landing-footer__copy { font-size: 0.65rem; }
+
+  /* Scroll hint adjustments */
+  .landing__scroll-hint { font-size: 0.8rem; }
 }
