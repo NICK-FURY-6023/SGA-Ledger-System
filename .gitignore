@@ -5,3 +5,6 @@ node_modules/
 *.log
 .vercel/
 env-secrets.txt
+create-release.js
+RELEASE_NOTES.md
+setup-dirs.js
