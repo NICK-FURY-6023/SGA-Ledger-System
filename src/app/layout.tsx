@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import '@/styles/globals.css';
 import '@/styles/landing.css';
 import '@/styles/login.css';
@@ -8,8 +8,14 @@ import '@/styles/pages.css';
 import { AuthProvider } from '@/lib/auth';
 import { Toaster } from 'react-hot-toast';
 
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 5,
+  userScalable: true,
+};
+
 export const metadata: Metadata = {
-  viewport: 'width=device-width, initial-scale=1, maximum-scale=5, user-scalable=yes',
   metadataBase: new URL(process.env.NEXT_PUBLIC_URL || 'https://sga-ledger-system.vercel.app'),
   title: 'SGALA — Shree Ganpati Agency Ledger Audit System',
   description: 'A secure, realtime, admin-only digital bahi-khata system for hardware & bath fittings. Cloud-synced ledger with audit trail, auto-save, and traditional register-style UI.',
