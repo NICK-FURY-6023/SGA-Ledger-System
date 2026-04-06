@@ -525,6 +525,31 @@
   50% { transform: translateY(-12px); }
 }
 
+/* Hero element animations */
+.landing__logo-entrance {
+  animation: fadeInUp 1s ease-out 0.3s both;
+}
+
+.landing__full-name {
+  animation: fadeInUp 0.5s ease-out 0.7s both;
+}
+
+.landing__subtitle {
+  animation: fadeInUp 0.5s ease-out 0.9s both;
+}
+
+.landing__cta-wrap {
+  animation: fadeInUp 0.5s ease-out 1.1s both;
+}
+
+.landing__status-btn {
+  animation: fadeInUp 0.4s ease-out 1.3s both;
+}
+
+.landing__scroll-hint {
+  animation: fadeInUp 0.4s ease-out 1.6s both;
+}
+
 /* ─── RESPONSIVE ─── */
 @media (max-width: 1024px) {
   .features-grid { grid-template-columns: repeat(2, 1fr); }
